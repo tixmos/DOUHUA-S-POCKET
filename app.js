@@ -245,7 +245,8 @@
     };
   }
 
-  function loadOnline() {
+  function loadOnline(attempt) {
+    attempt = attempt || 0;
     return Promise.all([
       sb.from('entries').select('*').order('date', { ascending: false }),
       sb.from('comments').select('*').order('created_at', { ascending: true })
@@ -264,6 +265,11 @@
         source: 'online'
       };
     }).catch(function (err) {
+      // 网络偶尔抽一下（尤其是国内连 supabase.co），先自动重试两次再说
+      if (attempt < 2) {
+        return new Promise(function (res) { setTimeout(res, 700 * (attempt + 1)); })
+          .then(function () { return loadOnline(attempt + 1); });
+      }
       toast('读取线上内容失败：' + ((err && err.message) ? err.message : '请检查 supabase-config.js'));
       return { items: JSON.parse(JSON.stringify(SEED)), source: 'seed' };
     });

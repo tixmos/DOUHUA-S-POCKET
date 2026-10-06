@@ -167,7 +167,12 @@ input[type=date].inp{color-scheme:light}
   animation:spin 260s linear infinite;
 }
 .hero-orbit svg{width:100%;height:100%;display:block}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* 关键帧里必须重复一遍居中位移：否则 transform 列表和基础值对不上，
+   浏览器会去插值两个不同的矩阵，圆环会一点点飘偏 */
+@keyframes spin{
+  from{transform:translate(-50%,-54%) rotate(0deg)}
+  to{transform:translate(-50%,-54%) rotate(360deg)}
+}
 
 .spark{position:absolute;pointer-events:none;animation:bob 6.5s ease-in-out infinite}
 .spark svg{display:block;width:100%;height:100%}
