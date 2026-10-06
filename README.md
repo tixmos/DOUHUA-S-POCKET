@@ -20,6 +20,11 @@
 
 访客看到的是只读版——没有「＋ 放进口袋」「编辑」「删除」，但每条内容底下能留言（可以填昵称，浏览器会记住）。评论右上角那个删除 ×，只有你登录之后才会出现。
 
+**待办和日历**（只有你登录后才会出现的两个标签）：
+
+- **待办**：分「待读书目」和「待办事项」两块。书目可以填书名、作者、类型；做完点左边的小方框打钩，文字会自动划掉沉到下面。点文字可以修改，点 × 删除。
+- **日历**：月视图。格子里标出节假日和二十四节气，点某一天就能给那天加事项；带日期的待办也会自动出现在对应日期上（显示为小圆点）。
+
 **忘了密码**：Supabase 后台 → Authentication → Users → 点你的账号 → 重设密码。
 
 ## 现在有哪些功能
@@ -34,6 +39,8 @@
 - **视频**：B 站 / YouTube 链接自动变成内嵌播放器；mp4 / webm 直链也能播
 - **实时更新**：你保存之后，别人开着的页面会自己刷新内容
 - **备份**：页脚「导出备份」能把全部内容导成一个 JSON
+- **待办清单**：待读书目（书名 / 作者 / 类型）+ 待办事项，可打钩完成；**只有你能看到**，访客看不到这个标签
+- **日历**：月视图，可给每天加事项，自动标出节假日与二十四节气；带日期的待办会一起显示
 
 ## 数据、备份和免费额度（重要，请看完）
 
@@ -101,7 +108,7 @@ git push -u origin main
 **B. 重建 Supabase 后端**
 
 1. https://supabase.com 建一个项目，Region 选 Singapore 或 Tokyo
-2. 左侧 **SQL Editor** → New query → 把 `supabase-schema.sql` 整个粘进去 → **Run**
+2. 左侧 **SQL Editor** → New query → 把 `supabase-schema.sql` 整个粘进去 → **Run**（文件末尾那段是 `tasks` 表，待办和日历用的；已经跑过前面部分的话，只跑这一段也行）
 3. **Authentication → Users → Add user** 建你自己的账号（勾 Auto Confirm User），然后到 Authentication 设置里**关掉 Allow new users to sign up**
 4. **Project Settings → API** 里把 Project URL 和 anon public 两个值填进 `supabase-config.js`
 5. 把这些文件传到 GitHub：`index.html`、`styles.css`、`app.js`、`supabase-config.js`、`supabase-schema.sql`、`vendor/supabase.js`
@@ -109,6 +116,8 @@ git push -u origin main
 `supabase-schema.sql` 末尾还留了一段可选的加固 SQL：把写权限从「所有登录用户」收紧到「只有你这个 UUID」，想更保险时可以取消注释跑一遍。
 
 ## 变更记录
+
+- 加：**待办**（待读书目 + 待办事项，可打钩完成）与**日历**（每天可加事项，标出节假日和二十四节气）；两者只有站长看得到，数据存在 Supabase 的 `tasks` 表
 
 - 建站：九个分类、五种条目、评论区、读书笔记字段
 - 首页文案换成自己的，标题改为衬线粗体 + 错位叠影 + 手绘下划线；正文字体从宋体换成黑体系（宋体小字号在屏幕上难读）

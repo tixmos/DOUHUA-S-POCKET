@@ -292,6 +292,11 @@
   var confirmResolve = null;
   var contentSource = 'seed';   // seed | published | local | online
   var loading = true;           // 首次读取还没回来时，先别显示"口袋里什么都没有"
+  var tasks = [];               // 待办 / 待读书目 / 日历事项
+  var tasksReady = true;        // 线上还没建 tasks 表时为 false
+  var view = 'notes';           // notes | todo | calendar
+  var calCursor = new Date();   // 日历当前显示的月份
+  var calSelected = null;       // 日历选中的日期 YYYY-MM-DD
   var toastTimer = null;
 
   function toast(msg) {
@@ -396,6 +401,10 @@
       if (rst) rst.hidden = true;    // 也没有本地草稿要清
       if (imp) imp.hidden = !canEdit;
     }
+    // 待办 / 日历是站长自己的东西，访客看不到这两个标签
+    var tabs = $('#tabs');
+    if (tabs) tabs.hidden = !canEdit;
+    if (!canEdit && view !== 'notes') setView('notes');
   }
 
   function renderSourceNote() {
@@ -434,6 +443,307 @@
     $('#fCategory').innerHTML = CATEGORIES.map(function (c) {
       return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
     }).join('');
+  }
+
+  /* ================= 待办 / 待读书目 / 日历 ================= */
+  var TASK_KEY = 'douhua-pocket-tasks-v1';
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+  function parseYmd(s) { var a = String(s).split('-'); return new Date(+a[0], +a[1] - 1, +a[2]); }
+
+  /* 二十四节气：21 世纪常用近似公式，小寒起、每两个月一对 */
+  var TERM_C = [5.4055, 20.12, 3.87, 18.73, 5.63, 20.646, 4.81, 20.1, 5.52, 21.04, 5.678, 21.37,
+    7.108, 22.83, 7.5, 23.13, 7.646, 23.042, 8.318, 23.438, 7.438, 22.36, 7.18, 21.94];
+  var TERM_N = ['小寒', '大寒', '立春', '雨水', '惊蛰', '春分', '清明', '谷雨', '立夏', '小满', '芒种', '夏至',
+    '小暑', '大暑', '立秋', '处暑', '白露', '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至'];
+
+  function termsOfMonth(year, month) {
+    var y = year % 100, out = {}, i0 = (month - 1) * 2;
+    for (var k = 0; k < 2; k++) {
+      var i = i0 + k;
+      var day = Math.floor(y * 0.2422 + TERM_C[i]) - Math.floor((i < 4 ? (y - 1) : y) / 4);
+      out[day] = TERM_N[i];
+    }
+    return out;
+  }
+  function termOfDay(d) { return termsOfMonth(d.getFullYear(), d.getMonth() + 1)[d.getDate()] || ''; }
+
+  /* 公历节日：固定日期，不会错 */
+  var FIXED_HOLIDAY = {
+    '01-01': '元旦', '02-14': '情人节', '03-08': '妇女节', '03-12': '植树节', '04-01': '愚人节',
+    '05-01': '劳动节', '05-04': '青年节', '06-01': '儿童节', '07-01': '建党节', '08-01': '建军节',
+    '09-10': '教师节', '10-01': '国庆节', '10-31': '万圣夜', '11-11': '双十一',
+    '12-24': '平安夜', '12-25': '圣诞节'
+  };
+  /* 农历大节：按年份查表（目前 2025-2027）。
+     调休安排以国务院公布为准，这里只标节日名；跨年后让 Codex 补下一年即可。 */
+  var LUNAR_HOLIDAY = {
+    '2025': { '01-28': '除夕', '01-29': '春节', '02-12': '元宵', '05-31': '端午', '08-29': '七夕', '09-06': '中元', '10-06': '中秋', '10-29': '重阳' },
+    '2026': { '02-16': '除夕', '02-17': '春节', '03-03': '元宵', '06-19': '端午', '08-19': '七夕', '08-27': '中元', '09-25': '中秋', '10-18': '重阳' },
+    '2027': { '02-05': '除夕', '02-06': '春节', '02-20': '元宵', '06-09': '端午', '08-08': '七夕', '08-16': '中元', '09-15': '中秋', '10-08': '重阳' }
+  };
+  function holidayOf(d) {
+    var mmdd = pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+    var y = String(d.getFullYear());
+    return (LUNAR_HOLIDAY[y] && LUNAR_HOLIDAY[y][mmdd]) || FIXED_HOLIDAY[mmdd] || '';
+  }
+  function dayLabel(d) { return holidayOf(d) || termOfDay(d) || ''; }
+
+  function rowToTask(r) {
+    return {
+      id: r.id, kind: r.kind || 'todo', title: r.title || '',
+      author: r.author || '', genre: r.genre || '', note: r.note || '',
+      date: r.date || '', done: !!r.done, doneAt: r.done_at || '', createdAt: r.created_at || ''
+    };
+  }
+  function taskToRow(t) {
+    return {
+      kind: t.kind || 'todo', title: t.title || '',
+      author: t.author || '', genre: t.genre || '', note: t.note || '',
+      date: t.date || null, done: !!t.done,
+      done_at: t.done ? (t.doneAt || new Date().toISOString()) : null,
+      updated_at: new Date().toISOString()
+    };
+  }
+  function readTaskStore() {
+    try { var raw = localStorage.getItem(TASK_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
+  }
+  function writeTaskStore() {
+    try { localStorage.setItem(TASK_KEY, JSON.stringify(tasks)); } catch (e) {}
+  }
+
+  function loadTasks() {
+    if (!ONLINE) { tasks = readTaskStore() || []; tasksReady = true; return Promise.resolve(); }
+    if (!canEdit) { tasks = []; tasksReady = true; return Promise.resolve(); }
+    return sb.from('tasks').select('*').order('created_at', { ascending: true })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        tasks = (res.data || []).map(rowToTask);
+        tasksReady = true;
+      })
+      .catch(function () {
+        tasks = [];
+        tasksReady = false;   // 多半是还没建表
+      });
+  }
+  function persistTask(t, isNew) {
+    if (!ONLINE) { writeTaskStore(); return Promise.resolve(); }
+    var row = taskToRow(t);
+    var q = isNew
+      ? sb.from('tasks').insert(row).select().single()
+      : sb.from('tasks').update(row).eq('id', t.id);
+    return q.then(function (res) {
+      if (res.error) throw res.error;
+      if (isNew && res.data) t.id = res.data.id;
+    });
+  }
+  function removeTaskRow(id) {
+    if (!ONLINE) return Promise.resolve();
+    return sb.from('tasks').delete().eq('id', id).then(checkErr);
+  }
+
+  function sortTasks(list) {
+    return list.slice().sort(function (a, b) {
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      var da = a.date || '', db = b.date || '';
+      if (da !== db) return da < db ? -1 : 1;
+      return String(a.createdAt).localeCompare(String(b.createdAt));
+    });
+  }
+  function taskHTML(t) {
+    var meta = [];
+    if (t.kind === 'book') {
+      if (t.author) meta.push(esc(t.author));
+      if (t.genre) meta.push(esc(t.genre));
+    }
+    if (t.date) meta.push(esc(t.date));
+    if (t.note) meta.push(esc(t.note));
+    return '<li class="task' + (t.done ? ' is-done' : '') + '" data-id="' + esc(t.id) + '">' +
+      '<button class="task-check" type="button" aria-label="标记完成"></button>' +
+      '<div class="task-main">' +
+        '<div class="task-title">' + esc(t.title) + '</div>' +
+        (meta.length ? '<div class="task-meta">' + meta.join(' · ') + '</div>' : '') +
+      '</div>' +
+      '<button class="task-del" type="button" aria-label="删除">×</button>' +
+      '</li>';
+  }
+
+  function renderTodos() {
+    var books = tasks.filter(function (t) { return t.kind === 'book'; });
+    var todos = tasks.filter(function (t) { return t.kind === 'todo'; });
+    var bookList = $('#bookList'), todoList = $('#todoList');
+    if (!bookList || !todoList) return;
+    bookList.innerHTML = books.length
+      ? sortTasks(books).map(taskHTML).join('')
+      : '<li class="task-empty">还没有想读的书</li>';
+    todoList.innerHTML = todos.length
+      ? sortTasks(todos).map(taskHTML).join('')
+      : '<li class="task-empty">暂时没有待办</li>';
+    $('#bookCount').textContent = books.filter(function (t) { return !t.done; }).length;
+    $('#todoCount').textContent = todos.filter(function (t) { return !t.done; }).length;
+    var setup = $('#todoSetup');
+    setup.hidden = tasksReady;
+    if (!tasksReady) {
+      setup.innerHTML = '待办功能还没启用：需要先在 Supabase 的 <b>SQL Editor</b> 里跑一下 ' +
+        '<code>supabase-schema.sql</code> 末尾那段建表语句（表名 <code>tasks</code>），然后刷新本页。';
+    }
+  }
+
+  function renderCalendar() {
+    var grid = $('#calGrid');
+    if (!grid) return;
+    var y = calCursor.getFullYear(), m = calCursor.getMonth();
+    $('#calTitle').textContent = y + ' 年 ' + (m + 1) + ' 月';
+    var terms = termsOfMonth(y, m + 1);
+    var startPad = new Date(y, m, 1).getDay();
+    var days = new Date(y, m + 1, 0).getDate();
+    var today = ymd(new Date());
+    var byDate = {};
+    tasks.forEach(function (t) { if (t.date) (byDate[t.date] = byDate[t.date] || []).push(t); });
+
+    var total = Math.ceil((startPad + days) / 7) * 7;
+    var cells = '';
+    for (var i = 0; i < total; i++) {
+      var d = new Date(y, m, i - startPad + 1);
+      var ds = ymd(d);
+      var out = d.getMonth() !== m;
+      var label = out ? holidayOf(d) : (holidayOf(d) || terms[d.getDate()] || '');
+      var list = byDate[ds] || [];
+      cells += '<button class="cal-cell' + (out ? ' is-out' : '') +
+        (ds === today ? ' is-today' : '') + (ds === calSelected ? ' is-sel' : '') +
+        '" type="button" data-date="' + ds + '">' +
+        '<span class="cal-num">' + d.getDate() + '</span>' +
+        (label ? '<span class="cal-label">' + esc(label) + '</span>' : '') +
+        (list.length ? '<span class="cal-dots">' +
+          list.slice(0, 4).map(function () { return '<i></i>'; }).join('') + '</span>' : '') +
+        '</button>';
+    }
+    grid.innerHTML = cells;
+    renderCalDay();
+  }
+
+  function renderCalDay() {
+    var box = $('#calDay');
+    if (!box) return;
+    if (!calSelected) { box.innerHTML = '<p class="cal-hint">点上面任意一天，看当天的事项。</p>'; return; }
+    var d = parseYmd(calSelected);
+    var label = dayLabel(d);
+    var week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
+    var list = tasks.filter(function (t) { return t.date === calSelected; });
+    var html = '<div class="cal-day-head"><h4>' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日 · 星期' + week + '</h4>' +
+      (label ? '<span class="cal-tag">' + esc(label) + '</span>' : '') + '</div>';
+    html += '<ul class="task-list">' + (list.length
+      ? sortTasks(list).map(taskHTML).join('')
+      : '<li class="task-empty">这天还没有安排</li>') + '</ul>';
+    html += '<form class="cal-add" id="calAddForm">' +
+      '<input class="inp" id="calAddInput" placeholder="给这天加一件事…">' +
+      '<button class="btn btn-primary btn-sm" type="submit">添加</button></form>';
+    box.innerHTML = html;
+    $('#calAddForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var v = $('#calAddInput').value.trim();
+      if (!v) return;
+      addTaskObj({ kind: 'event', title: v, date: calSelected });
+    });
+  }
+
+  function setView(v) {
+    view = v;
+    $$('#tabs .tab').forEach(function (b) {
+      b.classList.toggle('is-active', b.getAttribute('data-view') === v);
+    });
+    $('#notesHead').hidden = (v !== 'notes');
+    $('#notesView').hidden = (v !== 'notes');
+    $('#todoView').hidden = (v !== 'todo');
+    $('#calView').hidden = (v !== 'calendar');
+    if (v === 'todo') renderTodos();
+    if (v === 'calendar') {
+      if (!calSelected) calSelected = ymd(new Date());
+      renderCalendar();
+    }
+  }
+
+  /* ---------- 增删改 ---------- */
+  function afterTaskChange() { renderTodos(); renderCalendar(); }
+  function taskFail(err) {
+    toast('保存失败：' + ((err && err.message) ? err.message : '未知错误'));
+    return loadTasks().then(afterTaskChange);
+  }
+
+  function addTaskObj(data) {
+    var t = Object.assign({ id: uid(), done: false, doneAt: '', createdAt: new Date().toISOString() }, data);
+    tasks.push(t);
+    persistTask(t, true).then(function () {
+      afterTaskChange();
+      toast('已添加');
+    }).catch(taskFail);
+  }
+  function toggleTask(id) {
+    var t = tasks.filter(function (x) { return x.id === id; })[0];
+    if (!t) return;
+    t.done = !t.done;
+    t.doneAt = t.done ? new Date().toISOString() : '';
+    afterTaskChange();
+    persistTask(t, false).catch(taskFail);
+  }
+  function deleteTaskById(id) {
+    askConfirm('删掉这一条？', '删除', true).then(function (ok) {
+      if (!ok) return;
+      tasks = tasks.filter(function (x) { return x.id !== id; });
+      afterTaskChange();
+      removeTaskRow(id).catch(taskFail);
+    });
+  }
+
+  function openTaskModal(kind, task, date) {
+    var k = task ? task.kind : (kind || 'todo');
+    var isBook = (k === 'book');
+    $('#taskId').value = task ? task.id : '';
+    $('#taskKind').value = k;
+    $('#taskModalTitle').textContent = task
+      ? (isBook ? '编辑书目' : (k === 'event' ? '编辑事项' : '编辑待办'))
+      : (isBook ? '添加书目' : (k === 'event' ? '添加事项' : '添加待办'));
+    $('#taskTitleLabel').innerHTML = isBook ? '书名 <span class="req">*</span>' : '内容 <span class="req">*</span>';
+    $('#taskTitle').placeholder = isBook ? '比如：《金枝》' : (k === 'event' ? '这天要做什么？' : '要做什么？');
+    $('#taskAuthorField').hidden = !isBook;
+    $('#taskGenreField').hidden = !isBook;
+    $('#taskDateField').hidden = isBook;
+    $('#taskTitle').value = task ? task.title : '';
+    $('#taskAuthor').value = (task && task.author) || '';
+    $('#taskGenre').value = (task && task.genre) || '';
+    $('#taskNote').value = (task && task.note) || '';
+    $('#taskDate').value = (task && task.date) || date || '';
+    openModal('taskModal');
+    setTimeout(function () { $('#taskTitle').focus(); }, 60);
+  }
+
+  function submitTaskForm(e) {
+    e.preventDefault();
+    var id = $('#taskId').value;
+    var kind = $('#taskKind').value || 'todo';
+    var title = $('#taskTitle').value.trim();
+    if (!title) { toast('先写点什么'); $('#taskTitle').focus(); return; }
+    var data = {
+      kind: kind, title: title,
+      author: $('#taskAuthor').value.trim(),
+      genre: $('#taskGenre').value.trim(),
+      note: $('#taskNote').value.trim(),
+      date: $('#taskDate').value || ''
+    };
+    if (id) {
+      var t = tasks.filter(function (x) { return x.id === id; })[0];
+      if (!t) return;
+      Object.assign(t, data);
+      persistTask(t, false).then(afterTaskChange).catch(taskFail);
+      toast('已更新');
+    } else {
+      var nt = Object.assign({ id: uid(), done: false, doneAt: '', createdAt: new Date().toISOString() }, data);
+      tasks.push(nt);
+      persistTask(nt, true).then(afterTaskChange).catch(taskFail);
+      toast('已添加');
+    }
+    closeModal('taskModal');
   }
 
   /* ---------- 详情 ---------- */
@@ -699,6 +1009,10 @@
     canEdit = !ONLINE || !!session;
     renderAuthUI();
     render();
+    loadTasks().then(function () {
+      renderTodos();
+      if (view === 'calendar') renderCalendar();
+    });
   }
 
   function renderAuthUI() {
@@ -1070,6 +1384,28 @@
     document.addEventListener('click', function (e) {
       var closer = e.target.closest('[data-close]');
       if (closer) { closeModal(closer.getAttribute('data-close')); return; }
+
+      // 待办 / 书目的勾选、删除、编辑
+      var tcheck = e.target.closest('.task-check');
+      if (tcheck) {
+        var taskRow = tcheck.closest('.task');
+        if (taskRow) toggleTask(taskRow.getAttribute('data-id'));
+        return;
+      }
+      var tdel = e.target.closest('.task-del');
+      if (tdel) {
+        var taskRow2 = tdel.closest('.task');
+        if (taskRow2) deleteTaskById(taskRow2.getAttribute('data-id'));
+        return;
+      }
+      var tmain = e.target.closest('.task-main');
+      if (tmain) {
+        var row3 = tmain.closest('.task');
+        var theTask = row3 ? tasks.filter(function (x) { return x.id === row3.getAttribute('data-id'); })[0] : null;
+        if (theTask) openTaskModal(theTask.kind, theTask);
+        return;
+      }
+
       var del = e.target.closest('.row-del');
       if (del) {
         var row = del.closest('.row');
@@ -1092,6 +1428,33 @@
     $('#addVideoBtn').addEventListener('click', function () { addRow('#videoRows', videoRowHTML({})); });
     $('#addLinkBtn').addEventListener('click', function () { addRow('#linkRows', linkRowHTML({})); });
     $('#entryForm').addEventListener('submit', saveEntry);
+
+    // 视图切换
+    $('#tabs').addEventListener('click', function (e) {
+      var b = e.target.closest('.tab');
+      if (b) setView(b.getAttribute('data-view'));
+    });
+    // 待办 / 书目
+    $('#addBookBtn').addEventListener('click', function () { openTaskModal('book'); });
+    $('#addTodoBtn').addEventListener('click', function () { openTaskModal('todo'); });
+    $('#taskForm').addEventListener('submit', submitTaskForm);
+    // 日历
+    $('#calPrev').addEventListener('click', function () {
+      calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() - 1, 1); renderCalendar();
+    });
+    $('#calNext').addEventListener('click', function () {
+      calCursor = new Date(calCursor.getFullYear(), calCursor.getMonth() + 1, 1); renderCalendar();
+    });
+    $('#calToday').addEventListener('click', function () {
+      calCursor = new Date(); calSelected = ymd(new Date()); renderCalendar();
+    });
+    $('#calGrid').addEventListener('click', function (e) {
+      var cell = e.target.closest('.cal-cell');
+      if (!cell) return;
+      calSelected = cell.getAttribute('data-date');
+      renderCalendar();
+    });
+
     document.addEventListener('change', function (e) {
       if (e.target.classList && (e.target.classList.contains('img-file') || e.target.classList.contains('video-file'))) {
         handleFilePick(e.target);
@@ -1179,6 +1542,7 @@
       render();
       initAuth();
       subscribeRealtime();
+      loadTasks().then(function () { renderTodos(); });
     });
   }
 

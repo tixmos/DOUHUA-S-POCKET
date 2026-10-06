@@ -116,3 +116,37 @@ create policy "images 登录可删" on storage.objects
 --   for delete to authenticated
 --   using (auth.uid() = '<你的用户 uuid>');
 -- ============================================================
+
+
+-- ============================================================
+-- 【待办 / 待读书目 / 日历事项】
+-- 已经跑过上面那段的话，只跑这一段就行（重复跑也没事）
+-- 这张表只给站长自己用：没有给匿名用户开任何权限，访客读不到
+-- ============================================================
+create table if not exists public.tasks (
+  id         uuid primary key default gen_random_uuid(),
+  kind       text not null default 'todo',   -- todo 待办 / book 待读书目 / event 日历事项
+  title      text not null default '',
+  author     text default '',                -- 书目用
+  genre      text default '',                -- 书目用：类型
+  note       text default '',                -- 备注
+  date       date,                           -- 日历事项的日期 / 待办的截止日
+  done       boolean not null default false,
+  done_at    timestamptz,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table public.tasks enable row level security;
+
+drop policy if exists "tasks 只有站长" on public.tasks;
+create policy "tasks 只有站长" on public.tasks
+  for all to authenticated using (true) with check (true);
+
+do $$
+begin
+  begin
+    alter publication supabase_realtime add table public.tasks;
+  exception when duplicate_object then null;
+  end;
+end $$;

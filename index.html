@@ -84,12 +84,18 @@
     </div>
   </section>
 
-  <section class="wrap list-head">
+  <nav class="wrap tabs" id="tabs" hidden>
+    <button class="tab is-active" type="button" data-view="notes">收藏</button>
+    <button class="tab" type="button" data-view="todo">待办</button>
+    <button class="tab" type="button" data-view="calendar">日历</button>
+  </nav>
+
+  <section class="wrap list-head" id="notesHead">
     <div class="chips" id="chips"></div>
     <p class="result-line" id="resultLine"></p>
   </section>
 
-  <section class="wrap">
+  <section class="wrap" id="notesView">
     <div class="grid" id="grid"></div>
 
     <div class="empty" id="empty" hidden>
@@ -101,6 +107,44 @@
       <p id="emptyText">一段话、一张图、一个念头、一条链接，什么都可以先放进来。</p>
       <button class="btn btn-primary" id="emptyAdd">＋ 放进第一件</button>
     </div>
+  </section>
+
+  <!-- 待办 -->
+  <section class="wrap" id="todoView" hidden>
+    <p class="setup-note" id="todoSetup" hidden></p>
+
+    <section class="todo-block">
+      <header class="todo-head">
+        <h3>待读书目 <span class="todo-count" id="bookCount">0</span></h3>
+        <button class="mini-btn" type="button" id="addBookBtn">＋ 添加书目</button>
+      </header>
+      <ul class="task-list" id="bookList"></ul>
+    </section>
+
+    <section class="todo-block">
+      <header class="todo-head">
+        <h3>待办事项 <span class="todo-count" id="todoCount">0</span></h3>
+        <button class="mini-btn" type="button" id="addTodoBtn">＋ 添加事项</button>
+      </header>
+      <ul class="task-list" id="todoList"></ul>
+    </section>
+  </section>
+
+  <!-- 日历 -->
+  <section class="wrap" id="calView" hidden>
+    <header class="cal-head">
+      <div class="cal-nav">
+        <button class="mini-btn" type="button" id="calPrev" aria-label="上个月">←</button>
+        <h3 id="calTitle"></h3>
+        <button class="mini-btn" type="button" id="calNext" aria-label="下个月">→</button>
+      </div>
+      <button class="mini-btn" type="button" id="calToday">回到今天</button>
+    </header>
+    <div class="cal-week">
+      <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div class="cal-day" id="calDay"></div>
   </section>
 </main>
 
@@ -248,6 +292,42 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 待办 / 书目 / 日历事项 的编辑框 -->
+<div class="modal" id="taskModal" hidden>
+  <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-label="编辑事项">
+    <button class="modal-close" type="button" data-close="taskModal" aria-label="关闭">×</button>
+    <h3 class="confirm-title" id="taskModalTitle">添加</h3>
+    <form id="taskForm" class="login-form">
+      <input type="hidden" id="taskId">
+      <input type="hidden" id="taskKind">
+      <div class="field">
+        <label for="taskTitle" id="taskTitleLabel">内容 <span class="req">*</span></label>
+        <input class="inp" id="taskTitle" placeholder="……">
+      </div>
+      <div class="field" id="taskAuthorField">
+        <label for="taskAuthor">作者</label>
+        <input class="inp" id="taskAuthor" placeholder="作者名">
+      </div>
+      <div class="field" id="taskGenreField">
+        <label for="taskGenre">类型</label>
+        <input class="inp" id="taskGenre" placeholder="比如：人类学 / 小说 / 理论">
+      </div>
+      <div class="field" id="taskDateField">
+        <label for="taskDate">日期</label>
+        <input class="inp" id="taskDate" type="date">
+      </div>
+      <div class="field">
+        <label for="taskNote">备注（可选）</label>
+        <input class="inp" id="taskNote" placeholder="随手记一点">
+      </div>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" type="button" data-close="taskModal">取消</button>
+        <button class="btn btn-primary" type="submit">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <!-- 登录 -->
 <div class="modal" id="loginModal" hidden>

@@ -230,6 +230,100 @@ input[type=date].inp{color-scheme:light}
 }
 .result-line{margin:0;font-size:12.5px;color:var(--faint);letter-spacing:.08em}
 
+/* ---------- 视图切换（收藏 / 待办 / 日历） ---------- */
+.tabs{display:flex;gap:8px;margin:0 auto 18px}
+.tab{
+  background:var(--paper);border:1px solid var(--line-soft);color:#5f7a75;
+  border-radius:999px;padding:7px 20px;font-size:13.5px;letter-spacing:.06em;transition:.2s;
+}
+.tab:hover{border-color:var(--sage-line);color:var(--sage-deep)}
+.tab.is-active{background:var(--sage-soft);border-color:var(--sage-line);color:#35705f;font-weight:600}
+
+/* ---------- 待办 / 待读书目 ---------- */
+.setup-note{
+  margin:0 0 20px;padding:14px 18px;border-radius:14px;
+  background:#fff8ec;border:1px solid #f0dfc0;color:#8a6b34;font-size:13.5px;line-height:1.9;
+}
+.setup-note code{background:#fdf2df;border-radius:5px;padding:1px 6px;font-size:12.5px}
+.todo-block{margin-bottom:36px}
+.todo-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--line-soft);
+}
+.todo-head h3{
+  font-family:var(--sans);font-weight:600;font-size:17px;letter-spacing:.03em;
+  margin:0;color:#2f4a44;display:flex;align-items:center;gap:8px;
+}
+.todo-count{
+  font-size:12px;font-weight:400;color:#8fa8a2;background:#f2f7f5;
+  border:1px solid var(--line-soft);border-radius:999px;padding:1px 9px;
+}
+.task-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.task{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:11px 14px;border:1px solid var(--line-soft);border-radius:13px;
+  background:var(--paper);transition:.2s;
+}
+.task:hover{border-color:var(--sage-line)}
+.task-empty{padding:12px 4px;color:var(--faint);font-size:13px}
+.task-check{
+  flex:none;width:19px;height:19px;margin-top:3px;border-radius:6px;position:relative;
+  border:1.5px solid #b9cfc8;background:var(--paper);cursor:pointer;transition:.18s;
+}
+.task-check:hover{border-color:var(--sage);background:#f2faf7}
+.task.is-done .task-check{background:var(--sage);border-color:var(--sage)}
+.task.is-done .task-check::after{
+  content:"";position:absolute;left:5.5px;top:1.5px;width:5px;height:9px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(42deg);
+}
+.task-main{flex:1;min-width:0;cursor:pointer}
+.task-title{font-size:15px;color:#2b3a37;line-height:1.6;word-break:break-word}
+.task.is-done .task-title{color:#9aaba7;text-decoration:line-through}
+.task-meta{margin-top:3px;font-size:12.5px;color:#8ba39d}
+.task-del{
+  flex:none;background:none;border:none;color:#c9d4d1;font-size:17px;line-height:1;
+  padding:2px 4px;transition:.2s;
+}
+.task-del:hover{color:#b45e46}
+.cal-add{display:flex;gap:10px;margin-top:14px}
+.cal-add .inp{flex:1}
+
+/* ---------- 日历 ---------- */
+.cal-head{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.cal-nav{display:flex;align-items:center;gap:12px}
+.cal-nav h3{
+  font-family:var(--sans);font-weight:600;font-size:18px;margin:0;color:#2f4a44;
+  letter-spacing:.04em;min-width:132px;text-align:center;
+}
+.cal-week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal-week span{text-align:center;font-size:12px;color:var(--faint);letter-spacing:.08em}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-cell{
+  position:relative;display:flex;flex-direction:column;align-items:center;gap:2px;
+  min-height:76px;padding:7px 4px 6px;border:1px solid var(--line-soft);border-radius:12px;
+  background:var(--paper);cursor:pointer;transition:.18s;font-family:inherit;
+}
+.cal-cell:hover{border-color:var(--sage-line);background:#f8fcfb}
+.cal-cell.is-out{opacity:.42}
+.cal-cell.is-today{border-color:var(--sage);background:#f2faf7}
+.cal-cell.is-sel{border-color:var(--sage-deep);background:var(--sage-soft)}
+.cal-num{font-size:14px;color:#33443f}
+.cal-cell.is-today .cal-num{font-weight:700;color:var(--sage-deep)}
+.cal-label{
+  font-size:11px;line-height:1.3;color:#b08968;text-align:center;
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.cal-dots{display:flex;gap:3px;margin-top:auto}
+.cal-dots i{width:5px;height:5px;border-radius:50%;background:var(--sage);display:block}
+.cal-day{margin-top:22px;padding:18px 20px;border:1px solid var(--line-soft);border-radius:16px;background:var(--paper-2)}
+.cal-day-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cal-day-head h4{margin:0;font-family:var(--sans);font-weight:600;font-size:16px;color:#2f4a44}
+.cal-tag{
+  font-size:12px;color:#b08968;background:#fdf6ee;border:1px solid #f0dfc0;
+  border-radius:999px;padding:2px 10px;
+}
+.cal-hint{margin:0;color:var(--faint);font-size:13.5px}
+
 /* ---------- 卡片 ---------- */
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(288px,1fr));gap:22px;padding-bottom:40px}
 .card{
@@ -473,6 +567,13 @@ input[type=date].inp{color-scheme:light}
 
 @media (max-width:720px){
   .topbar-in{gap:12px}
+  .tabs{gap:6px}
+  .tab{padding:6px 14px;font-size:13px}
+  .cal-cell{min-height:60px;padding:5px 2px 4px;border-radius:10px}
+  .cal-label{font-size:10px}
+  .cal-num{font-size:13px}
+  .cal-day{padding:14px 14px}
+  .cal-add{flex-direction:column}
   .search input{width:150px}
   .search input:focus{width:170px}
   .hero{padding:50px 0 40px}
