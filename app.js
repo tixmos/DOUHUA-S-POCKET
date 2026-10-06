@@ -3,6 +3,15 @@
   'use strict';
 
   var STORE_KEY = 'douhua-pocket-v1';
+
+  /* ---------- 线上后台（Supabase）----------
+     没有填 supabase-config.js 的时候 ONLINE 是 false，
+     网站就退回「本地草稿 + content.js」的老模式，功能不受影响。 */
+  var SB_CFG = window.DH_SUPABASE || {};
+  var ONLINE = !!(SB_CFG.url && SB_CFG.anonKey && window.supabase && window.supabase.createClient);
+  var sb = ONLINE ? window.supabase.createClient(SB_CFG.url, SB_CFG.anonKey) : null;
+  var session = null;
+  var canEdit = !ONLINE;      // 线上模式：登录之后才变成 true
   var CATEGORIES = ['哲学', '宗教', '艺术', '自然科学', '女性主义', '历史', '游戏', '诗歌文学', '杂谈'];
   var TYPES = {
     note:  { label: '图文', glyph: '文' },
@@ -167,6 +176,7 @@
         （用 script 标签读内容，这样直接双击 index.html 也能读到，不会被浏览器的
           file:// 限制挡下来。） */
   function loadContent() {
+    if (ONLINE) return loadOnline();
     var stored = readStore();
     if (stored) return Promise.resolve({ items: stored, source: 'local' });
     if (window.DH_CONTENT && window.DH_CONTENT.length) {
@@ -190,12 +200,91 @@
     });
   }
 
+  /* ---------- 线上模式：读写 Supabase ---------- */
+  function checkErr(res) {
+    if (res && res.error) throw res.error;
+    return res;
+  }
+
+  function rowToItem(r, comments) {
+    return {
+      id: r.id,
+      type: r.type || 'note',
+      title: r.title || '',
+      category: r.category || '',
+      date: r.date || '',
+      summary: r.summary || '',
+      quote: r.quote || '',
+      body: r.body || '',
+      book: r.book || {},
+      images: r.images || [],
+      videos: r.videos || [],
+      links: r.links || [],
+      tags: r.tags || [],
+      comments: comments || [],
+      createdAt: r.created_at,
+      updatedAt: r.updated_at
+    };
+  }
+
+  function itemToRow(it) {
+    return {
+      type: it.type || 'note',
+      title: it.title || '',
+      category: it.category || '',
+      date: it.date || null,
+      summary: it.summary || '',
+      quote: it.quote || '',
+      body: it.body || '',
+      book: it.book || {},
+      images: it.images || [],
+      videos: it.videos || [],
+      links: it.links || [],
+      tags: it.tags || [],
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  function loadOnline() {
+    return Promise.all([
+      sb.from('entries').select('*').order('date', { ascending: false }),
+      sb.from('comments').select('*').order('created_at', { ascending: true })
+    ]).then(function (res) {
+      if (res[0].error) throw res[0].error;
+      var byEntry = {};
+      (res[1] && res[1].data ? res[1].data : []).forEach(function (c) {
+        if (!byEntry[c.entry_id]) byEntry[c.entry_id] = [];
+        byEntry[c.entry_id].push({
+          id: c.id, name: c.name || '', text: c.content || '', date: c.created_at
+        });
+      });
+      var rows = res[0].data || [];
+      return {
+        items: rows.map(function (r) { return rowToItem(r, byEntry[r.id] || []); }),
+        source: 'online'
+      };
+    }).catch(function (err) {
+      toast('读取线上内容失败：' + ((err && err.message) ? err.message : '请检查 supabase-config.js'));
+      return { items: JSON.parse(JSON.stringify(SEED)), source: 'seed' };
+    });
+  }
+
+  function refreshOnline() {
+    if (!ONLINE) return Promise.resolve();
+    return loadOnline().then(function (res) {
+      items = res.items;
+      contentSource = res.source;
+      render();
+    });
+  }
+
   /* ---------- 状态 ---------- */
   var items = [];
   var filter = { q: '', category: 'all', type: 'all' };
   var editingId = null;
   var confirmResolve = null;
-  var contentSource = 'seed';   // seed | published | local
+  var contentSource = 'seed';   // seed | published | local | online
+  var loading = true;           // 首次读取还没回来时，先别显示"口袋里什么都没有"
   var toastTimer = null;
 
   function toast(msg) {
@@ -265,22 +354,53 @@
   function render() {
     var list = visibleItems();
     $('#grid').innerHTML = list.map(cardHTML).join('');
-    $('#empty').hidden = list.length > 0;
+    $('#empty').hidden = loading || list.length > 0;
     $('#heroCount').textContent = items.length;
-    $('#resultLine').textContent = items.length
-      ? '显示 ' + list.length + ' / 共 ' + items.length + ' 件'
-      : '';
+    $('#resultLine').textContent = loading
+      ? '正在读取…'
+      : (items.length ? '显示 ' + list.length + ' / 共 ' + items.length + ' 件' : '');
     $$('#chips .chip').forEach(function (c) {
       c.classList.toggle('is-active', c.dataset.cat === filter.category);
     });
     $('#typeFilter').value = filter.type;
+    var hs = $('#heroSource');
+    if (hs) {
+      hs.textContent = (contentSource === 'online')
+        ? (canEdit ? '· 已登录，改动立刻生效' : '· 线上内容，实时更新')
+        : '· 内容保存在本机浏览器';
+    }
+    var et = $('#emptyTitle'), ep = $('#emptyText');
+    if (et) et.textContent = canEdit ? '口袋里还什么都没有' : '口袋还是空的';
+    if (ep) ep.textContent = canEdit
+      ? '一段话、一张图、一个念头、一条链接，什么都可以先放进来。'
+      : '等主人往里放点东西吧。';
+    renderEditAffordances();
     renderSourceNote();
+  }
+
+  /* 线上模式下没登录时（也就是访客），把编辑入口收起来，页面就是只读的 */
+  function renderEditAffordances() {
+    ['#addBtn', '#heroAdd', '#emptyAdd'].forEach(function (sel) {
+      var el = $(sel);
+      if (el) el.hidden = !canEdit;
+    });
+    if (ONLINE) {
+      var pub = $('#publishBtn'), rst = $('#resetBtn'), imp = $('#importBtn');
+      if (pub) pub.hidden = true;    // 线上模式不需要再导出 content.js
+      if (rst) rst.hidden = true;    // 也没有本地草稿要清
+      if (imp) imp.hidden = !canEdit;
+    }
   }
 
   function renderSourceNote() {
     var note = $('#sourceNote');
     if (!note) return;
     var n = items.length;
+    if (contentSource === 'online') {
+      note.innerHTML = '线上数据库 · ' + n + ' 条' +
+        (canEdit ? ' · <b>已登录</b>，改完立刻生效' : '');
+      return;
+    }
     if (!storageOK) {
       note.innerHTML = '注意：这个浏览器不允许本地保存，改动可能留不住 · 建议用本地服务打开，或随时「导出备份」';
       return;
@@ -290,7 +410,9 @@
     } else if (contentSource === 'published') {
       note.innerHTML = '当前显示 <b>content.js</b> 里的内容（' + n + ' 件）';
     } else {
-      note.innerHTML = '当前显示 <b>内置示例</b> · 还没有 content.js';
+      note.innerHTML = ONLINE
+        ? '线上读取失败，暂时显示 <b>内置示例</b> · 检查一下 supabase-config.js'
+        : '当前显示 <b>内置示例</b> · 还没有 content.js';
     }
   }
 
@@ -355,7 +477,7 @@
       '<div class="c-head">' +
         '<span class="c-name">' + esc(c.name || '匿名') + '</span>' +
         '<time>' + esc(fmtDateTime(c.date)) + '</time>' +
-        '<button class="c-del" type="button" title="删除这条评论" aria-label="删除这条评论">×</button>' +
+        (canEdit ? '<button class="c-del" type="button" title="删除这条评论" aria-label="删除这条评论">×</button>' : '') +
       '</div>' +
       '<p>' + esc(c.text).replace(/\n/g, '<br>') + '</p>' +
       '</article>';
@@ -408,14 +530,16 @@
     }
     html += commentsHTML(it);
     html += '<div class="detail-foot">' +
-      '<button class="btn btn-ghost" type="button" id="editEntryBtn">编辑</button>' +
-      '<button class="btn btn-danger" type="button" id="deleteEntryBtn">删除</button>' +
+      (canEdit ? '<button class="btn btn-ghost" type="button" id="editEntryBtn">编辑</button>' +
+                 '<button class="btn btn-danger" type="button" id="deleteEntryBtn">删除</button>' : '') +
       '<button class="btn btn-ghost" type="button" data-close="detailModal">关闭</button>' +
       '</div>';
     $('#detailContent').innerHTML = html;
     openModal('detailModal');
-    $('#editEntryBtn').onclick = function () { closeModal('detailModal'); openEditor(it.id); };
-    $('#deleteEntryBtn').onclick = function () { deleteEntry(it.id); };
+    if (canEdit) {
+      $('#editEntryBtn').onclick = function () { closeModal('detailModal'); openEditor(it.id); };
+      $('#deleteEntryBtn').onclick = function () { deleteEntry(it.id); };
+    }
     bindComments(it);
   }
 
@@ -433,11 +557,30 @@
       var c = { id: uid(), name: name, text: text, date: new Date().toISOString() };
       var entry = entryOf();
       if (!entry) return;
+      var emptyEl = $('.c-empty', $('#detailModal'));
+
+      if (ONLINE) {
+        sb.from('comments')
+          .insert({ entry_id: entry.id, name: name, content: text })
+          .select().single()
+          .then(function (res) {
+            if (res.error) throw res.error;
+            var row = res.data;
+            if (emptyEl) emptyEl.remove();
+            $('#commentList').insertAdjacentHTML('beforeend',
+              commentHTML({ id: row.id, name: row.name || '', text: row.content, date: row.created_at }));
+            $('#commentCount').textContent = String($('#commentList').children.length);
+            $('#cText').value = '';
+            toast('已发表');
+          })
+          .catch(function (err) { toast('发表失败：' + err.message); });
+        return;
+      }
+
       entry.comments = entry.comments || [];
       entry.comments.push(c);
       entry.updatedAt = c.date;
       writeStore(items);
-      var emptyEl = $('.c-empty', $('#detailModal'));
       if (emptyEl) emptyEl.remove();
       $('#commentList').insertAdjacentHTML('beforeend', commentHTML(c));
       $('#commentCount').textContent = entry.comments.length;
@@ -454,6 +597,17 @@
       var cid = wrap.getAttribute('data-cid');
       askConfirm('删除这条评论？', '删除', true).then(function (ok) {
         if (!ok) return;
+        if (ONLINE) {
+          sb.from('comments').delete().eq('id', cid).then(checkErr).then(function () {
+            wrap.remove();
+            $('#commentCount').textContent = String($('#commentList').children.length);
+            if (!$('#commentList').children.length) {
+              $('#commentList').insertAdjacentHTML('afterend', '<p class="c-empty">还没有评论。</p>');
+            }
+            toast('已删除');
+          }).catch(function (err) { toast('删除失败：' + err.message); });
+          return;
+        }
         var entry = entryOf();
         if (!entry) return;
         entry.comments = (entry.comments || []).filter(function (c) { return c.id !== cid; });
@@ -472,6 +626,14 @@
   function deleteEntry(id) {
     askConfirm('确定把这件收藏从口袋里拿出来吗？删除后无法撤销，建议先导出备份。', '删除', true).then(function (ok) {
       if (!ok) return;
+      if (ONLINE) {
+        sb.from('entries').delete().eq('id', id).then(checkErr).then(function () {
+          closeModal('detailModal');
+          toast('已删除');
+          return refreshOnline();
+        }).catch(function (err) { toast('删除失败：' + err.message); });
+        return;
+      }
       items = items.filter(function (x) { return x.id !== id; });
       writeStore(items);
       render();
@@ -512,6 +674,40 @@
     ok.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
     openModal('confirmModal');
     return new Promise(function (resolve) { confirmResolve = resolve; });
+  }
+
+  /* ---------- 登录：只有站长需要，别人打开是只读的 ---------- */
+  function setSession(s) {
+    session = s || null;
+    canEdit = !ONLINE || !!session;
+    renderAuthUI();
+    render();
+  }
+
+  function renderAuthUI() {
+    var btn = $('#authBtn');
+    if (!btn) return;
+    if (!ONLINE) { btn.hidden = true; return; }
+    btn.hidden = false;
+    btn.textContent = session ? '退出' : '登录';
+    btn.title = (session && session.user) ? session.user.email : '只有你自己需要登录';
+  }
+
+  function initAuth() {
+    if (!ONLINE) return;
+    sb.auth.getSession().then(function (res) {
+      setSession(res && res.data ? res.data.session : null);
+    }).catch(function () { setSession(null); });
+    sb.auth.onAuthStateChange(function (_evt, s) { setSession(s); });
+  }
+
+  /* ---------- 实时推送：你保存之后，正开着页面的人会自动看到新的 ---------- */
+  function subscribeRealtime() {
+    if (!ONLINE) return;
+    sb.channel('douhua-pocket')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, function () { refreshOnline(); })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'comments' }, function () { refreshOnline(); })
+      .subscribe();
   }
 
   /* ---------- 表单行 ---------- */
@@ -670,6 +866,20 @@
     };
 
     var isEdit = !!editingId;
+    if (ONLINE) {
+      var q = isEdit
+        ? sb.from('entries').update(itemToRow(data)).eq('id', editingId)
+        : sb.from('entries').insert(itemToRow(data));
+      q.then(checkErr).then(function () {
+        editingId = null;
+        closeModal('editorModal');
+        toast(isEdit ? '已更新，别人刷新就能看到' : '已发到线上');
+        return refreshOnline();
+      }).catch(function (err) {
+        toast('保存失败：' + err.message);
+      });
+      return;
+    }
     if (isEdit) {
       items = items.map(function (x) {
         if (x.id !== editingId) return x;
@@ -695,19 +905,40 @@
     fr.readAsDataURL(file);
   }
 
+  /* 线上模式：图片传到 Supabase 的 images 桶，网页里只存网址 */
+  function uploadImage(file) {
+    var ext = (String(file.name || '').split('.').pop() || 'jpg').toLowerCase();
+    if (!/^(jpg|jpeg|png|gif|webp|avif|svg)$/.test(ext)) ext = 'jpg';
+    var name = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7) + '.' + ext;
+    return sb.storage.from('images')
+      .upload(name, file, { cacheControl: '31536000', upsert: false })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        return sb.storage.from('images').getPublicUrl(name).data.publicUrl;
+      });
+  }
+
   function handleFilePick(input) {
     var file = input.files && input.files[0];
     if (!file) return;
     var row = input.closest('.row');
     if (input.classList.contains('img-file')) {
-      if (file.size > 1.5 * 1024 * 1024) toast('图片偏大，本地存储可能吃紧，也可以改用图片链接。');
-      readAsDataURL(file, function (url) {
+      var apply = function (url) {
         var src = $('.img-src', row);
         src.value = url;
         var th = $('.row-thumb', row);
         th.src = url;
         th.classList.remove('is-empty');
-      });
+      };
+      if (ONLINE) {
+        toast('正在上传图片…');
+        uploadImage(file)
+          .then(function (url) { apply(url); toast('图片已上传'); })
+          .catch(function (err) { toast('上传失败：' + err.message); });
+      } else {
+        if (file.size > 1.5 * 1024 * 1024) toast('图片偏大，本地存储可能吃紧，也可以改用图片链接。');
+        readAsDataURL(file, apply);
+      }
     } else if (input.classList.contains('video-file')) {
       if (file.size > 4 * 1024 * 1024) { toast('视频文件建议小于 4MB，更长请用外链。'); input.value = ''; return; }
       readAsDataURL(file, function (url) { $('.v-src', row).value = url; });
@@ -751,6 +982,14 @@
         if (!arr) throw new Error('bad');
         askConfirm('导入会覆盖当前口袋里的 ' + items.length + ' 件内容，继续吗？', '覆盖导入').then(function (ok) {
           if (!ok) return;
+          if (ONLINE) {
+            var rows = arr.map(function (x) { return itemToRow(x); });
+            sb.from('entries').insert(rows).then(checkErr).then(function () {
+              toast('已导入 ' + rows.length + ' 条到线上');
+              return refreshOnline();
+            }).catch(function (err) { toast('导入失败：' + err.message); });
+            return;
+          }
           items = arr.map(function (x) {
             return Object.assign({ createdAt: new Date().toISOString() }, x, { id: x && x.id ? x.id : uid() });
           });
@@ -851,6 +1090,39 @@
     }, true);
 
     $('#exportBtn').addEventListener('click', exportBackup);
+    $('#authBtn').addEventListener('click', function () {
+      if (!ONLINE) return;
+      if (session) {
+        askConfirm('退出后这个页面就变成只读的，你自己也要重新登录才能改。确定退出吗？', '退出').then(function (ok) {
+          if (!ok) return;
+          sb.auth.signOut().then(function () { toast('已退出登录'); });
+        });
+      } else {
+        openModal('loginModal');
+      }
+    });
+    $('#loginForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      if (!ONLINE) return;
+      var email = $('#loginEmail').value.trim();
+      var pass = $('#loginPass').value;
+      if (!email || !pass) { toast('邮箱和密码都填一下'); return; }
+      var btn = $('#loginSubmit');
+      btn.disabled = true;
+      btn.textContent = '登录中…';
+      sb.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = '登录';
+        if (res.error) { toast('登录失败：' + res.error.message); return; }
+        $('#loginPass').value = '';
+        closeModal('loginModal');
+        toast('登录成功，现在可以直接改了');
+      }).catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = '登录';
+        toast('登录失败：' + err.message);
+      });
+    });
     $('#publishBtn').addEventListener('click', exportPublish);
     $('#importBtn').addEventListener('click', function () { $('#importFile').click(); });
     $('#importFile').addEventListener('change', function () {
@@ -879,11 +1151,15 @@
   function init() {
     buildChips();
     buildCategoryOptions();
+    bindEvents();          // 先把交互接上，页面不会白着
+    render();
     loadContent().then(function (res) {
       items = res.items;
       contentSource = res.source;
-      bindEvents();
+      loading = false;
       render();
+      initAuth();
+      subscribeRealtime();
     });
   }
 

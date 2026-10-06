@@ -116,6 +116,9 @@ body::before{
 .btn-ghost:hover{background:var(--sage-soft);border-color:var(--sage-line)}
 .btn-danger{background:#fdf1ee;border-color:#f0cfc7;color:#b45e46}
 .btn-danger:hover{background:#fbe6e0}
+.btn-sm{padding:7px 14px;font-size:12.5px}
+.login-form{display:flex;flex-direction:column;gap:10px;text-align:left}
+.login-form .confirm-actions{margin-top:6px}
 
 .sel{
   width:100%;padding:10px 12px;border-radius:11px;

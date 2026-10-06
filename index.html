@@ -36,6 +36,7 @@
         <option value="book">读书笔记</option>
       </select>
       <button class="btn btn-primary" id="addBtn">＋ 放进口袋</button>
+      <button class="btn btn-ghost btn-sm" id="authBtn" hidden>登录</button>
     </div>
   </div>
 </header>
@@ -79,7 +80,7 @@
         <button class="btn btn-primary" id="heroAdd">＋ 放进一件</button>
         <button class="btn btn-ghost" id="heroBrowse">扒拉一番</button>
       </div>
-      <p class="hero-note">已收藏 <b id="heroCount">0</b> 件 · 内容保存在本机浏览器</p>
+      <p class="hero-note">已收藏 <b id="heroCount">0</b> 件 <span id="heroSource">· 内容保存在本机浏览器</span></p>
     </div>
   </section>
 
@@ -96,8 +97,8 @@
         <path d="M20 6.6 L21.33 9.87 L24.6 11.2 L21.33 12.53 L20 15.8 L18.67 12.53 L15.4 11.2 L18.67 9.87 Z" fill="#8db3dd"/>
         <path d="M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z" stroke="#4f9182" stroke-width="2.4" stroke-linejoin="round"/>
       </svg>
-      <h3>口袋里还什么都没有</h3>
-      <p>一段话、一张图、一个念头、一条链接，什么都可以先放进来。</p>
+      <h3 id="emptyTitle">口袋里还什么都没有</h3>
+      <p id="emptyText">一段话、一张图、一个念头、一条链接，什么都可以先放进来。</p>
       <button class="btn btn-primary" id="emptyAdd">＋ 放进第一件</button>
     </div>
   </section>
@@ -245,6 +246,23 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<!-- 登录 -->
+<div class="modal" id="loginModal" hidden>
+  <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-label="登录">
+    <button class="modal-close" type="button" data-close="loginModal" aria-label="关闭">×</button>
+    <h3 class="confirm-title">登录</h3>
+    <p class="confirm-msg">登录后就能在这个网页上直接写、直接改，保存完所有人立刻看得到。这个账号只有你有，别人打开网站是只读的。</p>
+    <form id="loginForm" class="login-form">
+      <input class="inp" id="loginEmail" type="email" placeholder="邮箱" autocomplete="username">
+      <input class="inp" id="loginPass" type="password" placeholder="密码" autocomplete="current-password">
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" type="button" data-close="loginModal">取消</button>
+        <button class="btn btn-primary" type="submit" id="loginSubmit">登录</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- 确认框 -->
 <div class="modal" id="confirmModal" hidden>
   <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-label="确认">
@@ -257,6 +275,8 @@
   </div>
 </div>
 
+<script src="vendor/supabase.js"></script>
+<script src="supabase-config.js"></script>
 <script src="content.js"></script>
 <script src="app.js"></script>
 </body>
