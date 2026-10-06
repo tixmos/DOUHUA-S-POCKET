@@ -139,8 +139,8 @@ body::before{
 }
 .inp::placeholder{color:#a7b5b2}
 .inp:focus{border-color:var(--sage-line);background:var(--paper);box-shadow:0 0 0 4px rgba(127,184,166,.16)}
-.textarea{min-height:150px;resize:vertical;line-height:1.9}
-.textarea-sm{min-height:96px}
+.textarea{min-height:280px;resize:vertical;line-height:1.9}
+.textarea-sm{min-height:130px}
 input[type=date].inp{color-scheme:light}
 
 .link-btn{
@@ -299,13 +299,43 @@ input[type=date].inp{color-scheme:light}
   padding:26px 18px;background:rgba(38,58,56,.26);backdrop-filter:blur(9px);
 }
 .modal-card{
-  position:relative;width:min(880px,100%);max-height:88vh;overflow:auto;
+  position:relative;width:min(1040px,94vw);max-height:92vh;overflow:auto;
   background:var(--paper);
   border:1px solid var(--line-soft);border-radius:22px;
   box-shadow:0 44px 80px -44px rgba(35,60,58,.65);
-  padding:30px 32px 26px;
+  padding:30px 34px 26px;
 }
 .modal-card-form{width:min(760px,100%)}
+
+/* ---------- 详情：整屏阅读页（不再是浮层小框） ---------- */
+.modal.modal-full{padding:0;background:var(--bg);backdrop-filter:none;align-items:stretch}
+.modal-card.modal-card-full{
+  width:100%;max-width:none;max-height:none;height:100%;
+  border:0;border-radius:0;box-shadow:none;padding:0;
+  background:
+    radial-gradient(900px 520px at 8% -12%, rgba(168,214,199,.28), transparent 62%),
+    radial-gradient(760px 460px at 94% -4%, rgba(178,203,232,.26), transparent 62%),
+    var(--bg);
+}
+.reader-bar{
+  position:sticky;top:0;z-index:6;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  padding:11px max(16px,calc(50% - 480px));
+  background:rgba(252,253,251,.86);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line-soft);
+}
+.reader-back{
+  background:none;border:none;color:#4c6b64;font-size:14px;letter-spacing:.06em;
+  padding:6px 2px;transition:.2s;
+}
+.reader-back:hover{color:var(--sage-deep)}
+.reader-actions{display:flex;gap:10px}
+.reader{width:min(960px,92vw);margin:0 auto;padding:28px 0 90px}
+.reader .detail-head h2{font-size:clamp(22px,3.2vw,31px)}
+.reader .detail-summary{font-size:15px}
+.reader .detail-body p{font-size:16px}
+.reader .gallery{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
 .modal-card-sm{width:min(420px,100%);padding:26px 26px 22px;text-align:center}
 .confirm-title{font-family:var(--sans);font-weight:600;font-size:17px;letter-spacing:.04em;margin:0 0 10px;color:#2f4a44}
 .confirm-msg{margin:0 0 22px;font-size:14px;color:#4a5c58;line-height:1.9}
@@ -333,7 +363,8 @@ input[type=date].inp{color-scheme:light}
   display:flex;flex-wrap:wrap;gap:8px 16px;align-items:baseline;
   margin:14px 0 0;font-size:13px;color:#6b7e7a;
 }
-.book-meta .bk-author{color:#41756a;font-weight:600}
+.book-meta .bk-title{color:#26443d;font-weight:600;font-size:13.5px}
+.book-meta .bk-author{color:#41756a}
 .book-meta .bk-loc{color:#9aaba7}
 .status-chip{
   font-size:11.5px;letter-spacing:.08em;border-radius:999px;padding:3px 11px;
@@ -381,10 +412,15 @@ input[type=date].inp{color-scheme:light}
 
 .gallery{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin:0 0 22px}
 .gallery.single{grid-template-columns:1fr}
-.gallery figure{margin:0}
-.gallery img{width:100%;display:block;border-radius:14px;border:1px solid var(--line-soft)}
+.gallery figure{margin:0;display:flex;flex-direction:column;align-items:center}
+.gallery img{
+  display:block;width:auto;height:auto;max-width:100%;
+  max-height:min(70vh,720px);
+  border-radius:14px;border:1px solid var(--line-soft);
+}
+.gallery.single img{max-width:min(100%,760px);max-height:min(76vh,860px)}
 .gallery figcaption{margin-top:7px;font-size:12px;color:var(--faint);text-align:center}
-.video-figure{margin:0 0 22px}
+.video-figure{margin:0 0 22px;max-width:900px}
 .video-figure video{width:100%;display:block;border-radius:14px;border:1px solid var(--line-soft);background:#000}
 .video-figure .frame{position:relative;padding-top:56.25%;border-radius:14px;overflow:hidden;border:1px solid var(--line-soft);background:#000}
 .video-figure iframe{position:absolute;inset:0;width:100%;height:100%;border:0}

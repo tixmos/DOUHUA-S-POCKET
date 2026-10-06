@@ -121,9 +121,8 @@
 </footer>
 
 <!-- 详情 -->
-<div class="modal" id="detailModal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-label="收藏详情">
-    <button class="modal-close" type="button" data-close="detailModal" aria-label="关闭">×</button>
+<div class="modal modal-full" id="detailModal" hidden>
+  <div class="modal-card modal-card-full" role="dialog" aria-modal="true" aria-label="收藏详情">
     <div id="detailContent"></div>
   </div>
 </div>
@@ -169,7 +168,11 @@
 
       <section class="block" id="secBook" hidden>
         <header class="block-head"><h3>书目信息</h3></header>
-        <div class="form-grid">
+        <div class="field">
+          <label for="fBookTitle">书名 <span class="req">*</span></label>
+          <input class="inp" id="fBookTitle" placeholder="例如：《金枝》">
+        </div>
+        <div class="form-grid mt">
           <div class="field">
             <label for="fBookAuthor">作者</label>
             <input class="inp" id="fBookAuthor" placeholder="作者名">

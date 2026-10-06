@@ -52,6 +52,7 @@
       summary: '读书笔记会多出作者、版本、位置、状态，摘录和自己的话分开排。',
       quote: '把原文摘录放在这里，详情页会单独排成一段引文。',
       book: {
+        title: '《一本关于仪式的书》',
         author: '作者名（示例）',
         edition: '出版社 · 版次 / 年份',
         locator: '第三章 · p.88',
@@ -336,9 +337,8 @@
     if (it.type === 'book') {
       var bk = it.book || {};
       var bits = [];
+      if (bk.title) bits.push(esc(bk.title));
       if (bk.author) bits.push(esc(bk.author));
-      if (bk.locator) bits.push(esc(bk.locator));
-      if (bk.status) bits.push(esc(bk.status));
       if (bits.length) bookLine = '<div class="card-book-meta">' + bits.join(' · ') + '</div>';
     }
     var cCount = (it.comments || []).length;
@@ -512,6 +512,17 @@
     var meta = TYPES[it.type] || TYPES.note;
     var bk = it.book || {};
     var html = '';
+    // 顶栏：返回 +（登录后才有）编辑 / 删除
+    html += '<div class="reader-bar">' +
+      '<button class="reader-back" type="button" data-close="detailModal">← 返回</button>' +
+      '<div class="reader-actions">' +
+        (canEdit
+          ? '<button class="btn btn-ghost btn-sm" type="button" id="editEntryBtn">编辑</button>' +
+            '<button class="btn btn-danger btn-sm" type="button" id="deleteEntryBtn">删除</button>'
+          : '') +
+      '</div>' +
+      '</div>';
+    html += '<article class="reader">';
     html += '<div class="detail-head">' +
       '<div class="card-meta">' + catTagHTML(it.category) +
       '<span class="tag">' + esc(meta.label) + '</span><time>' + esc(fmtDate(it.date)) + '</time>' +
@@ -520,6 +531,7 @@
       '<h2>' + esc(it.title) + '</h2>';
     if (it.type === 'book') {
       var bits = [];
+      if (bk.title) bits.push('<span class="bk-title">' + esc(bk.title) + '</span>');
       if (bk.author) bits.push('<span class="bk-author">' + esc(bk.author) + '</span>');
       if (bk.edition) bits.push('<span>' + esc(bk.edition) + '</span>');
       if (bk.locator) bits.push('<span class="bk-loc">' + esc(bk.locator) + '</span>');
@@ -536,10 +548,9 @@
     }
     html += commentsHTML(it);
     html += '<div class="detail-foot">' +
-      (canEdit ? '<button class="btn btn-ghost" type="button" id="editEntryBtn">编辑</button>' +
-                 '<button class="btn btn-danger" type="button" id="deleteEntryBtn">删除</button>' : '') +
-      '<button class="btn btn-ghost" type="button" data-close="detailModal">关闭</button>' +
+      '<button class="btn btn-ghost" type="button" data-close="detailModal">← 返回</button>' +
       '</div>';
+    html += '</article>';
     $('#detailContent').innerHTML = html;
     openModal('detailModal');
     if (canEdit) {
@@ -790,9 +801,10 @@
       if (showVideos && !$$('#videoRows .row').length) addRow('#videoRows', videoRowHTML({}));
       if (showLinks && !$$('#linkRows .row').length) addRow('#linkRows', linkRowHTML({}));
     }
-    $('#titleLabel').innerHTML = (type === 'book')
-      ? '书名 / 标题 <span class="req">*</span>'
-      : '标题 <span class="req">*</span>';
+    $('#titleLabel').innerHTML = '标题 <span class="req">*</span>';
+    $('#fTitle').placeholder = (type === 'book')
+      ? '这条笔记的标题，比如：关于「仪式」的三点疑问'
+      : '比如：一座村庙的岁末祭仪';
     $('#bodyLabel').textContent = (type === 'book') ? '我的想法 / 笔记' : ((type === 'note') ? '正文' : '说明 / 备注');
     $('#bodyHint').textContent = (type === 'book')
       ? '空一行分段；写判断、疑问，或可以和别的材料对照的地方。'
@@ -812,6 +824,7 @@
     $('#fQuote').value = it ? (it.quote || '') : '';
     $('#fBody').value = it ? (it.body || '') : '';
     var bk = (it && it.book) || {};
+    $('#fBookTitle').value = bk.title || '';
     $('#fBookAuthor').value = bk.author || '';
     $('#fBookEdition').value = bk.edition || '';
     $('#fBookLocator').value = bk.locator || '';
@@ -849,6 +862,9 @@
     if (type === 'image' && !images.length) { toast('图片类型至少需要一张图片'); return; }
     if (type === 'video' && !videos.length) { toast('视频类型至少需要一个视频地址'); return; }
     if (type === 'link' && !links.length) { toast('链接类型至少需要一个链接'); return; }
+    if (type === 'book' && !$('#fBookTitle').value.trim()) {
+      toast('读书笔记记得写书名'); $('#fBookTitle').focus(); return;
+    }
 
     var data = {
       type: type,
@@ -859,6 +875,7 @@
       quote: $('#fQuote').value.trim(),
       body: $('#fBody').value.trim(),
       book: (type === 'book') ? {
+        title: $('#fBookTitle').value.trim(),
         author: $('#fBookAuthor').value.trim(),
         edition: $('#fBookEdition').value.trim(),
         locator: $('#fBookLocator').value.trim(),
@@ -1069,10 +1086,6 @@
     });
 
     $('#fType').addEventListener('change', function () {
-      // 新条目选「读书笔记」时，顺手把分类也切过去（还可以再改）
-      if (this.value === 'book' && !editingId && $('#fCategory').value === CATEGORIES[0]) {
-        $('#fCategory').value = '读书笔记';
-      }
       syncTypeSections(this.value, true);
     });
     $('#addImageBtn').addEventListener('click', function () { addRow('#imageRows', imageRowHTML({})); });
