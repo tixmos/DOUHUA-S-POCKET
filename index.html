@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>豆花的口袋</title>
+<meta name="description" content="碎片里有趣的东西统统丢进来熬成一锅：哲学、宗教、艺术、自然科学、女性主义、历史、游戏、诗歌文学、杂谈。">
+<meta name="theme-color" content="#fcfdfb">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40'%3E%3Crect width='40' height='40' rx='10' fill='%23f3f9f6'/%3E%3Cpath d='M20 6.6 L21.33 9.87 L24.6 11.2 L21.33 12.53 L20 15.8 L18.67 12.53 L15.4 11.2 L18.67 9.87 Z' fill='%238db3dd'/%3E%3Cpath d='M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z' fill='none' stroke='%234f9182' stroke-width='2.4' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <a class="brand" href="#" id="brandLink">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path d="M20 6.6 L21.33 9.87 L24.6 11.2 L21.33 12.53 L20 15.8 L18.67 12.53 L15.4 11.2 L18.67 9.87 Z" fill="#8db3dd"/>
+        <path d="M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z" stroke="#4f9182" stroke-width="2.4" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-text">
+        <strong>豆花的口袋</strong>
+      </span>
+    </a>
+    <div class="topbar-actions">
+      <div class="search">
+        <span class="search-icon" aria-hidden="true">⌕</span>
+        <input id="searchInput" type="search" placeholder="搜索标题、标签、正文…" aria-label="搜索">
+      </div>
+      <select id="typeFilter" class="sel sel-sm" aria-label="按类型筛选">
+        <option value="all">全部类型</option>
+        <option value="note">图文</option>
+        <option value="image">图片</option>
+        <option value="video">视频</option>
+        <option value="link">链接</option>
+        <option value="book">读书笔记</option>
+      </select>
+      <button class="btn btn-primary" id="addBtn">＋ 放进口袋</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="hero-orbit" aria-hidden="true">
+      <svg viewBox="0 0 400 400">
+        <circle cx="200" cy="200" r="184" fill="none" stroke="#a8d3c5" stroke-width="1.2" stroke-dasharray="2 10" opacity=".75"/>
+        <circle cx="200" cy="200" r="148" fill="none" stroke="#bdd2ea" stroke-width="1" opacity=".45"/>
+        <circle cx="200" cy="52" r="4.5" fill="#a8d3c5"/>
+        <circle cx="331" cy="268" r="3.5" fill="#bdd2ea"/>
+        <circle cx="69" cy="268" r="3.5" fill="#cfc6e8"/>
+        <circle cx="200" cy="348" r="2.5" fill="#a8d3c5" opacity=".8"/>
+      </svg>
+    </div>
+
+    <span class="spark spark-1" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#a8d3c5"/></svg></span>
+    <span class="spark spark-2" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#bdd2ea"/></svg></span>
+    <span class="spark spark-3" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#cfc6e8"/></svg></span>
+    <span class="spark spark-4" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#f0c9b0"/></svg></span>
+
+    <div class="wrap hero-in">
+      <span class="mark-circle">
+        <svg viewBox="0 0 40 40" width="64" height="64" fill="none" aria-hidden="true">
+          <path d="M20 6.6 L21.33 9.87 L24.6 11.2 L21.33 12.53 L20 15.8 L18.67 12.53 L15.4 11.2 L18.67 9.87 Z" fill="#8db3dd"/>
+          <path d="M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z" stroke="#4f9182" stroke-width="2.4" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <p class="hero-kicker">DOUHUA'S POCKET</p>
+      <h1 class="hero-title">
+        <span class="tt ghost" aria-hidden="true">豆花的口袋</span>
+        <span class="tt main">豆花的口袋</span>
+      </h1>
+      <svg class="hero-underline" viewBox="0 0 260 14" aria-hidden="true">
+        <path d="M5 9.5 C 62 2.5, 118 12.5, 172 6.5 C 205 3.2, 232 5.4, 255 8.6" fill="none" stroke="#96cdbb" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <p class="hero-sub">碎片的有趣的东西统统丢进来熬成一锅。<br>我们的宗旨是：让哲学无法成为一门学问，使思想不能蜕生任何流派。只能交谈、争吵、诅咒，只有表白、忏悔、祈祷。</p>
+      <div class="rule" aria-hidden="true"><i></i><span>✦</span><i></i></div>
+      <div class="hero-actions">
+        <button class="btn btn-primary" id="heroAdd">＋ 放进一件</button>
+        <button class="btn btn-ghost" id="heroBrowse">扒拉一番</button>
+      </div>
+      <p class="hero-note">已收藏 <b id="heroCount">0</b> 件 · 内容保存在本机浏览器</p>
+    </div>
+  </section>
+
+  <section class="wrap list-head">
+    <div class="chips" id="chips"></div>
+    <p class="result-line" id="resultLine"></p>
+  </section>
+
+  <section class="wrap">
+    <div class="grid" id="grid"></div>
+
+    <div class="empty" id="empty" hidden>
+      <svg class="empty-mark" viewBox="0 0 40 40" fill="none" aria-hidden="true">
+        <path d="M20 6.6 L21.33 9.87 L24.6 11.2 L21.33 12.53 L20 15.8 L18.67 12.53 L15.4 11.2 L18.67 9.87 Z" fill="#8db3dd"/>
+        <path d="M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z" stroke="#4f9182" stroke-width="2.4" stroke-linejoin="round"/>
+      </svg>
+      <h3>口袋里还什么都没有</h3>
+      <p>一段话、一张图、一个念头、一条链接，什么都可以先放进来。</p>
+      <button class="btn btn-primary" id="emptyAdd">＋ 放进第一件</button>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-in">
+    <div class="foot-left">
+      <p>豆花的口袋 · 个人收藏</p>
+      <p class="foot-note" id="sourceNote"></p>
+    </div>
+    <div class="foot-actions">
+      <button class="link-btn" id="publishBtn">导出 content.js（发布用）</button>
+      <button class="link-btn" id="exportBtn">导出备份</button>
+      <button class="link-btn" id="importBtn">导入数据</button>
+      <button class="link-btn" id="resetBtn" title="清空这台电脑上的本地草稿，重新读取 content.js">重新载入</button>
+      <input type="file" id="importFile" accept="application/json,.json" hidden>
+    </div>
+  </div>
+</footer>
+
+<!-- 详情 -->
+<div class="modal" id="detailModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-label="收藏详情">
+    <button class="modal-close" type="button" data-close="detailModal" aria-label="关闭">×</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- 编辑器 -->
+<div class="modal" id="editorModal" hidden>
+  <div class="modal-card modal-card-form" role="dialog" aria-modal="true" aria-label="编辑收藏">
+    <button class="modal-close" type="button" data-close="editorModal" aria-label="关闭">×</button>
+    <h2 class="editor-title" id="editorTitle">放进口袋</h2>
+    <p class="editor-hint">带 <span class="req">*</span> 的是必填项。</p>
+
+    <form id="entryForm" class="form">
+      <div class="field">
+        <label for="fTitle" id="titleLabel">标题 <span class="req">*</span></label>
+        <input class="inp" id="fTitle" placeholder="比如：一座村庙的岁末祭仪">
+      </div>
+
+      <div class="form-grid">
+        <div class="field">
+          <label for="fType">条目类型</label>
+          <select class="sel" id="fType">
+            <option value="note">图文</option>
+            <option value="image">图片</option>
+            <option value="video">视频</option>
+            <option value="link">链接</option>
+            <option value="book">读书笔记</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="fCategory">分类</label>
+          <select class="sel" id="fCategory"></select>
+        </div>
+        <div class="field">
+          <label for="fDate">日期</label>
+          <input class="inp" id="fDate" type="date">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="fSummary">一句话摘要</label>
+        <input class="inp" id="fSummary" placeholder="卡片上显示的短句，留空则从正文里截取">
+      </div>
+
+      <section class="block" id="secBook" hidden>
+        <header class="block-head"><h3>书目信息</h3></header>
+        <div class="form-grid">
+          <div class="field">
+            <label for="fBookAuthor">作者</label>
+            <input class="inp" id="fBookAuthor" placeholder="作者名">
+          </div>
+          <div class="field">
+            <label for="fBookEdition">版本 / 出版信息</label>
+            <input class="inp" id="fBookEdition" placeholder="出版社 · 版次 / 年份">
+          </div>
+          <div class="field">
+            <label for="fBookStatus">状态</label>
+            <select class="sel" id="fBookStatus">
+              <option value="在读">在读</option>
+              <option value="读毕">读毕</option>
+              <option value="只作摘录">只作摘录</option>
+            </select>
+          </div>
+        </div>
+        <div class="field mt">
+          <label for="fBookLocator">位置（章节 / 页码）</label>
+          <input class="inp" id="fBookLocator" placeholder="第三章 · p.88">
+        </div>
+      </section>
+
+      <div class="field">
+        <label for="fQuote">摘录 / 引文（可选）</label>
+        <textarea class="inp textarea textarea-sm" id="fQuote" placeholder="原文摘录，详情页会单独排成一段引文。"></textarea>
+      </div>
+
+      <div class="field">
+        <label for="fBody" id="bodyLabel">正文</label>
+        <textarea class="inp textarea" id="fBody" placeholder="空一行分段。"></textarea>
+        <p class="hint" id="bodyHint">空一行分段；可以写田野笔记、释读、引用。</p>
+      </div>
+
+      <div class="field">
+        <label for="fTags">标签</label>
+        <input class="inp" id="fTags" placeholder="用逗号分隔，例如：村庙，祭仪，田野笔记">
+      </div>
+
+      <section class="block" id="secImages">
+        <header class="block-head">
+          <h3>图片</h3>
+          <button class="mini-btn" type="button" id="addImageBtn">＋ 添加图片</button>
+        </header>
+        <p class="hint">可以粘贴图片网址，也可以从本机选文件（建议单张小于 1.5MB）。</p>
+        <div class="rows" id="imageRows"></div>
+      </section>
+
+      <section class="block" id="secVideos">
+        <header class="block-head">
+          <h3>视频</h3>
+          <button class="mini-btn" type="button" id="addVideoBtn">＋ 添加视频</button>
+        </header>
+        <p class="hint">支持 B 站 / YouTube 链接（自动转成播放器），或 mp4 / webm 直链与本机小视频。</p>
+        <div class="rows" id="videoRows"></div>
+      </section>
+
+      <section class="block" id="secLinks">
+        <header class="block-head">
+          <h3>链接</h3>
+          <button class="mini-btn" type="button" id="addLinkBtn">＋ 添加链接</button>
+        </header>
+        <p class="hint">资料库、论文、档案、图片出处，都可以挂在这里。</p>
+        <div class="rows" id="linkRows"></div>
+      </section>
+
+      <div class="form-foot">
+        <button class="btn btn-ghost" type="button" data-close="editorModal">取消</button>
+        <button class="btn btn-primary" type="submit">保存进袋</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 确认框 -->
+<div class="modal" id="confirmModal" hidden>
+  <div class="modal-card modal-card-sm" role="dialog" aria-modal="true" aria-label="确认">
+    <h3 class="confirm-title">确认一下</h3>
+    <p class="confirm-msg" id="confirmMsg"></p>
+    <div class="confirm-actions">
+      <button class="btn btn-ghost" type="button" id="confirmCancel">取消</button>
+      <button class="btn btn-primary" type="button" id="confirmOk">确定</button>
+    </div>
+  </div>
+</div>
+
+<script src="content.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
