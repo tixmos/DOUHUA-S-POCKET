@@ -1,181 +1,118 @@
 # 豆花的口袋
 
-一个纯静态的个人收藏网站：哲学、宗教、艺术、自然科学、女性主义、历史、游戏、诗歌文学、杂谈，什么有趣的都往里装。
+个人收藏网站：哲学、宗教、艺术、自然科学、女性主义、历史、游戏、诗歌文学、杂谈，什么有趣的都往里装。
 
-## 怎么打开
+| | |
+| --- | --- |
+| **网址** | https://tixmos.github.io/DOUHUA-S-POCKET/ |
+| **仓库** | https://github.com/tixmos/DOUHUA-S-POCKET |
+| **内容存在哪** | Supabase 线上数据库（项目 `hipdufhwebiagwcvldpx`），改完立刻生效，不用再传文件 |
+| **谁可以写** | 只有你，登录之后 |
+| **谁可以留言** | 所有人，不用登录，留言所有人都看得到 |
 
-直接双击 `index.html` 就能用（Chrome / Edge / Firefox 都可以）。
+---
 
-想更稳妥（本地文件读写在个别浏览器里有小限制），可以在本文件夹里起一个本地服务：
+## 日常怎么用
 
-```powershell
-python -m http.server 8080
-```
+1. 打开网址 → 右上角 **登录** → 用你在 Supabase 建的邮箱密码进去
+2. 点「**＋ 放进口袋**」写新内容；点开任意一张卡片，底部可以 **编辑 / 删除**
+3. 保存完就生效了：别人刷新即是最新的，正开着页面的人会**自动更新，不用刷新**
 
-然后访问 http://localhost:8080
+访客看到的是只读版——没有「＋ 放进口袋」「编辑」「删除」，但每条内容底下能留言（可以填昵称，浏览器会记住）。评论右上角那个删除 ×，只有你登录之后才会出现。
 
-## 已经有的功能
+**忘了密码**：Supabase 后台 → Authentication → Users → 点你的账号 → 重设密码。
+
+## 现在有哪些功能
 
 - **五种条目**：图文 / 图片 / 视频 / 链接 / 读书笔记
-- **添加**：首页右上角「＋ 放进口袋」，或页脚上的「放进一件」
-- **编辑 / 删除**：点开任意一张卡片，在详情底部操作
-- **图片**：可粘贴图片网址，也可从本机选文件（本地文件会转成 base64 存进浏览器，建议单张小于 1.5MB）
-- **视频**：粘贴 B 站 / YouTube 链接会自动变成内嵌播放器；mp4 / webm 直链和本机小视频也能播
-- **链接**：名称 + 网址 + 备注，详情页会显示域名
-- **读书笔记**：比别的条目多出「作者 / 版本 / 位置（章节页码）/ 状态（在读·读毕·只作摘录）」四栏，详情页会排成书目信息；摘录单独排成一段引文，和你自己的笔记分开
-- **摘录 / 引文**：任何类型都能用，详情页会排成引文块（放在正文之前的字段里）
-- **评论**：每条内容底下都能发评论，可填昵称（会记住），评论和这条内容存在一起，能单独删除。卡片上会显示评论条数
-- **分类筛选**：哲学 / 宗教 / 艺术 / 自然科学 / 女性主义 / 历史 / 游戏 / 诗歌文学 / 杂谈（分类写在 `app.js` 顶部的 `CATEGORIES` 里，可自行增删）
+- **读书笔记**：比别的条目多出「作者 / 版本 / 位置（章节页码）/ 状态（在读·读毕·只作摘录）」，详情页会排成书目信息
+- **摘录 / 引文**：任何类型都能用，详情页单独排成引文块，和自己的话分开
+- **评论**：每条内容底下都能留言，所有人可见；只有你能删
+- **分类**：哲学 / 宗教 / 艺术 / 自然科学 / 女性主义 / 历史 / 游戏 / 诗歌文学 / 杂谈（写在 `app.js` 的 `CATEGORIES` 里，可增删）
 - **搜索**：标题、摘要、正文、标签一起搜
-- **发布与备份**：页脚「导出 content.js（发布用）/ 导出备份 / 导入数据 / 重新载入」
-- **线上后台（可选）**：填好 `supabase-config.js` 之后，可以直接在网页上写内容、保存即刻生效；访客只读，评论人人可见。做法见下面「升级成线上实时后台（Supabase）」
+- **图片**：可以粘图片网址，也可以从本机选文件——会自动传到 Supabase 的 `images` 存储桶，网页里只存图片网址
+- **视频**：B 站 / YouTube 链接自动变成内嵌播放器；mp4 / webm 直链也能播
+- **实时更新**：你保存之后，别人开着的页面会自己刷新内容
+- **备份**：页脚「导出备份」能把全部内容导成一个 JSON
 
-新建条目选到「读书笔记」时，分类会自动切到「读书笔记」（还可以手动改回别的分类，比如把一本关于民间信仰的书归到「民间信仰」）。
+## 数据、备份和免费额度（重要，请看完）
 
-## 数据存在哪里
+内容存在 Supabase 的免费项目里。免费层有个机制要记住：
 
-存在你这台电脑浏览器的 localStorage 里，换电脑、换浏览器或清理浏览器数据都不会带走它。所以：
+> **项目闲置一周会被暂停。** 暂停期间网站读不到数据（会显示兜底内容），去 Supabase 后台点一下就能唤醒。
 
-> 认真开始写内容之后，请定期点页脚的「导出备份」存一份 JSON。
+所以请养成一个习惯：
 
-页脚会实时告诉你现在看到的是哪一份内容：
+> **每个月点一次页脚的「导出备份」**，把下载到的 JSON 存到网盘或电脑里。那一个文件就是你的全部内容——有了它，任何平台出问题都能重建。图片也建议自己留一份原图。
 
-| 页脚写的 | 意思 |
-| --- | --- |
-| 本地草稿 | 你在这台电脑上改的最新版，**别人看不到** |
-| content.js | 网站文件夹里那份公开内容，**所有人看到的都是它** |
-| 内置示例 | 既没有草稿也没有 content.js，显示的是代码里的兜底示例 |
-
-## 怎么让所有人都能看到
-
-关键点：**别人打开你的网站时，读不到你浏览器里的草稿。** 公开的内容必须写进网站文件夹里的 `content.js`。
-
-所以发布流程只有三步：
-
-1. 在本机打开 `index.html`，像平常一样添加、编辑内容
-2. 点页脚「**导出 content.js（发布用）**」，把下载到的 `content.js` 覆盖到本站文件夹里
-3. 把整个文件夹重新上传到你的托管平台
-
-上传时这个文件夹里应该有五个文件：`index.html`、`styles.css`、`app.js`、`content.js`，以及以后放图片的目录。
-
-> 为什么是 `.js` 而不是 `.json`：用 `.json` 的话，直接双击 `index.html` 打开时浏览器会拦下来，只能看到兜底示例；换成 `.js` 由页面直接加载，双击打开和正式上线都能读到完整内容。
-
-### 放到哪里（都是免费的）
-
-- **Netlify Drop**：打开 https://app.netlify.com/drop ，把整个文件夹拖进去，几秒后就有网址。最省事，适合先跑起来
-- **Cloudflare Pages / Vercel**：同样支持拖拽上传，速度在国内通常比 Netlify 稳一些
-- **GitHub Pages**：免费、有版本历史，适合长期积累，但需要先把项目推到 GitHub，稍麻烦一点
-
-### 部署到 GitHub Pages（一步一步）
-
-这个文件夹本身就是仓库根目录，也是网站根目录 —— `index.html` 必须在最外层。
-
-1. 在 GitHub 上新建一个空仓库，名字建议 `douhua-pocket`，可见性选 **Public**（公开仓库用 Pages 免费；私有仓库要 Pages 需要付费账号）。**不要**勾选 Add a README / .gitignore / license，建一个完全空的仓库。
-2. 在这个文件夹里打开 PowerShell，把下面几行里的 `<你的用户名>` 换成你的 GitHub 用户名，然后逐行执行：
-
-```powershell
-git init -b main
-git config user.name "<你的用户名>"
-git config user.email "<你的用户名>@users.noreply.github.com"
-git add -A
-git commit -m "初始化：豆花的口袋"
-git remote add origin https://github.com/<你的用户名>/douhua-pocket.git
-git push -u origin main
-```
-
-第一次 `git push` 会弹出 GitHub 登录窗口，选浏览器登录一次，之后就免了。
-
-3. 回到仓库页面：**Settings → Pages**，Source 选 **Deploy from a branch**，Branch 选 **main**，目录选 **/ (root)**，保存。
-4. 等 1 分钟左右，访问 `https://<你的用户名>.github.io/douhua-pocket/`。
-
-以后更新内容只要三步：
-
-```powershell
-git add -A
-git commit -m "更新内容"
-git push
-```
-
-> 仓库名如果取 `<你的用户名>.github.io`，网址会变成 `https://<你的用户名>.github.io/`（直接就是根路径），内容完全一样，看你喜欢。
->
-> 页面里的资源全是相对路径，所以放在子路径（`/douhua-pocket/`）下也能正常加载。
-
-### 升级成线上实时后台（Supabase，可选）
-
-上面那套是「本地写 → 上传 → 才更新」。想让内容就在网页上写、写完所有人立刻看到，就做这一节。全程免费。
-
-**第 1 步 · 建项目**
-
-打开 https://supabase.com 注册（邮箱或 GitHub 登录都行）→ **New project** → 名字随便（比如 `douhua`）→ 数据库密码随便设一个 → Region 建议选 **Singapore** 或 **Tokyo**（离国内近）→ 创建，等一两分钟。
-
-**第 2 步 · 建表**
-
-左侧 **SQL Editor** → **New query** → 把本站文件夹里的 `supabase-schema.sql` 整个复制进去 → 点 **Run**。跑完显示 Success 就对了。
-
-**第 3 步 · 建你自己的账号（重要）**
-
-左侧 **Authentication → Users → Add user → Create new user**：填你的邮箱和一个密码，**勾上 Auto Confirm User**（省得收确认邮件）。
-
-然后到 **Authentication → Providers / Sign In** 里，把 **Allow new users to sign up** 关掉。不关的话，任何人自己注册一个账号就能改你的网站。
-
-**第 4 步 · 填两个值**
-
-后台 **Project Settings → API**：
-
-- **Project URL** → 填进 `supabase-config.js` 的 `url`
-- **anon public** 那一长串 → 填进 `anonKey`
-
-**第 5 步 · 传到 GitHub**
-
-用仓库的 **Add file → Upload files** 把这几个文件重新传一遍（覆盖旧的）：
-
-`index.html`、`styles.css`、`app.js`、`supabase-config.js`、`supabase-schema.sql`，以及新增的 `vendor` 文件夹（里面是 Supabase 的客户端库，放在本地加载，不走 CDN，国内更稳）。
-
-传完打开你的网址，右上角会出现 **登录**。用第 3 步的邮箱密码登录后，就能直接在网页上写、直接改；保存后别人刷新就是最新的，正开着页面的人甚至不用刷新。
-
-**之后怎么用**
-
-- 访客打开是只读的，可以在每条内容下面留言，留言所有人都看得到
-- 只有你登录之后，才会出现「＋ 放进口袋」「编辑」「删除」，以及每条评论右上角的删除 ×
-- 图片会传到 Supabase 的 `images` 存储桶，网页里只存图片网址，`content.js` 那种 base64 膨胀的问题就没有了
-- 忘了密码：Supabase 后台 Authentication → Users 里可以给用户重设
-
-> 没填 `supabase-config.js` 的时候，网站自动退回「本地草稿 + content.js」的老模式，功能照旧，不会坏。
-
-想让「豆花的口袋」挂在 `你的名字.netlify.app` 或自己的域名下都可以，绑定域名也在这个流程里。
-
-### 再往后
-
-上面这套是「本地写作 + 上传发布」。如果有一天你想**直接在网页上改、改完所有人立刻看到**，那就需要把内容从文件换成数据库（Supabase、Notion API 这类，都免费起步），或者接一个后台。到那一步随时说，我可以在这个模板上接着改。
-
-顺便说清评论的边界：评论是和内容存在一起的，**你自己发的评论导出后会跟着上线，所有人看得到**；访客在网页上发的评论只存在他自己那台电脑上，别人看不到。如果想要真正「谁都能留言、大家都看得到」，通常是接 Giscus 这类基于 GitHub Discussions 的评论服务，等你有了域名再加很省事。
+长期建议：**尽早买一个自己的域名**（几十块一年）绑定到这个站上。这样以后无论换到哪个平台，网址都不会变，朋友收藏的链接也不会失效。域名是唯一真正需要长期持有的东西，其他都可以随时替换。
 
 ## 文件说明
 
 | 文件 | 作用 |
 | --- | --- |
-| `index.html` | 页面结构（首页、详情弹层、编辑表单） |
+| `index.html` | 页面结构（首页、详情弹层、编辑表单、登录弹窗） |
 | `styles.css` | 全部样式：配色、字体、卡片、弹层、响应式 |
-| `app.js` | 交互逻辑与兜底示例（顶部 `SEED` 数组） |
-| `content.js` | **对外展示的内容**，发布时由页面导出覆盖 |
+| `app.js` | 全部逻辑：读取、编辑、评论、登录、实时更新 |
+| `supabase-config.js` | **后端配置**：项目网址 + 公开钥匙。两个值留空就退回文件模式 |
+| `supabase-schema.sql` | 建表脚本（表、权限、实时、图片桶），只在新建项目时跑一次 |
+| `vendor/supabase.js` | Supabase 客户端库，放在本地加载，不依赖 CDN |
+| `content.js` | 兜底内容：线上读不到时显示它。**现在是空的 `[]`**，所以会继续退回内置示例 |
+| `.nojekyll`、`.gitignore` | GitHub Pages 和 Git 的配置，不用动 |
+
+## 两种运行模式
+
+**线上模式（现在用的）**：`supabase-config.js` 里填了两个值 → 内容从 Supabase 读写。你在网页上写，所有人立刻看到。
+
+**文件模式（备用）**：把 `supabase-config.js` 里两个值清空 → 网站退回「本地草稿 + `content.js`」的老做法：本地改，点页脚「导出 content.js（发布用）」，再上传覆盖。顺序是 本地草稿 → `content.js` → 内置示例。
+
+两个模式共用同一套界面，切换只改那两个值，其他都不用动。
 
 ## 想改的常见几处
 
-- **换站名 / 副标题**：`index.html` 顶栏的 `.brand-text` 和首屏 `<h1>`、`.hero-sub`
+- **换站名 / 首页那句话**：`index.html` 顶栏的 `.brand-text`、首屏 `.hero-title`、`.hero-sub`
 - **换颜色**：`styles.css` 顶部 `:root` 里的 `--sage`（薄荷绿）、`--blue`（雾蓝）、`--bg`（底色）
-- **换分类配色**：`app.js` 里的 `CAT_STYLE`，每个分类一组 `fg`（文字色）/ `bg`（底色）
-- **换首页标题的字体**：`styles.css` 里的 `--display`。标题现在是「衬线粗体 + 淡绿错位叠影 + 手绘下划线」，不用楷体；想换成别的气质，改这一个变量就行
-- **换图标**：三处同一个路径 —— `index.html` 里的 `<link rel="icon">`（浏览器标签图标）、顶栏 `.brand-mark`、首屏 `.mark-circle` 里的 SVG。换成别的图形时记得三处一起改
-- **换字体**：`:root` 里的 `--sans`（正文、卡片标题、界面文字，默认走系统黑体系，屏幕上更好读）和 `--display`（站名与大标题用的衬线体）。`--serif` 还留着但暂时没用到，想把正文换回宋体的话，把对应规则里的 `var(--sans)` 换成 `var(--serif)` 就行。想更好看可以自己引入思源宋体、霞鹜文楷等网络字体
-- **重来**：点页脚「重新载入」清掉本地草稿，回到 `content.js` 的内容
-- **分类**：`app.js` 里 `var CATEGORIES = [...]`
+- **换分类配色**：`app.js` 里的 `CAT_STYLE`，每类一组 `fg`（文字色）/ `bg`（底色）
+- **换分类**：`app.js` 里 `var CATEGORIES = [...]`
+- **换字体**：`:root` 里的 `--sans`（正文、卡片标题、界面，走系统黑体系，屏幕上更好读）和 `--display`（站名与大标题用的衬线体）。`--serif` 保留着没用到，想把正文换回宋体，把对应的 `var(--sans)` 换成 `var(--serif)` 即可
+- **换图标**：三处同一个图形 —— `index.html` 里的 `<link rel="icon">`（浏览器标签页）、顶栏 `.brand-mark`、首屏 `.mark-circle`。换图形时三处一起改
+- **首页那个圆环**：`styles.css` 的 `.hero-orbit` 和 `@keyframes spin`。注意关键帧里必须重复一遍居中位移，否则圆环会飘（这个坑踩过一次）
 
-## 之后可以怎么升级
+## 附录：万一要从零重建
 
-现在的版本是「零成本跑起来」的形态：不用服务器、不用数据库。
-等内容多起来，可以按需要往下走一步：
+**A. 部署到 GitHub Pages**
 
-1. **上线**：整个文件夹拖到 Netlify Drop，或推到 GitHub 开 Pages，就有公开网址了
-2. **多页化**：给每个分类一个独立页面，或做归档 / 时间线视图
-3. **换成真数据库**：接 Supabase / Notion API / 自建后端，实现多设备同步、图片上传到对象存储
-4. **换成写作流**：内容写成 Markdown 文件，用 Astro / Hugo 生成静态站，写起来更顺手也更适合长期积累
+仓库根目录就是网站根目录，`index.html` 必须在最外层。在仓库页面用 **Add file → Upload files** 传文件即可；也可以在本文件夹里用命令行：
+
+```powershell
+git init -b main
+git config user.name "tixmos"
+git config user.email "tixmos@users.noreply.github.com"
+git add -A
+git commit -m "初始化：豆花的口袋"
+git remote add origin https://github.com/tixmos/DOUHUA-S-POCKET.git
+git push -u origin main
+```
+
+然后 **Settings → Pages**：Source 选 `Deploy from a branch`，Branch 选 `main`，目录选 `/ (root)`，保存。等一分钟就能访问。
+
+> 如果你从网页上传，**传完之后要按 `Ctrl + F5` 强刷**一次自己的页面（js 有缓存）。
+
+**B. 重建 Supabase 后端**
+
+1. https://supabase.com 建一个项目，Region 选 Singapore 或 Tokyo
+2. 左侧 **SQL Editor** → New query → 把 `supabase-schema.sql` 整个粘进去 → **Run**
+3. **Authentication → Users → Add user** 建你自己的账号（勾 Auto Confirm User），然后到 Authentication 设置里**关掉 Allow new users to sign up**
+4. **Project Settings → API** 里把 Project URL 和 anon public 两个值填进 `supabase-config.js`
+5. 把这些文件传到 GitHub：`index.html`、`styles.css`、`app.js`、`supabase-config.js`、`supabase-schema.sql`、`vendor/supabase.js`
+
+`supabase-schema.sql` 末尾还留了一段可选的加固 SQL：把写权限从「所有登录用户」收紧到「只有你这个 UUID」，想更保险时可以取消注释跑一遍。
+
+## 变更记录
+
+- 建站：九个分类、五种条目、评论区、读书笔记字段
+- 首页文案换成自己的，标题改为衬线粗体 + 错位叠影 + 手绘下划线；正文字体从宋体换成黑体系（宋体小字号在屏幕上难读）
+- 修：「视频/链接」行的缩略图装饰层曾盖住表单，导致标题和正文无法输入
+- 修：首页圆环的旋转动画会吃掉居中位移，导致圆环慢慢飘偏
+- 接入 Supabase：网页上直接写、实时生效，访客只读，评论公开，图片上传到存储桶
+- 加：读取失败自动重试两次，避免网络抖动时访客看到兜底内容
