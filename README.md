@@ -7,7 +7,7 @@
 | **网址** | https://tixmos.github.io/DOUHUA-S-POCKET/ |
 | **仓库** | https://github.com/tixmos/DOUHUA-S-POCKET |
 | **内容存在哪** | Supabase 线上数据库（项目 `hipdufhwebiagwcvldpx`），改完立刻生效，不用再传文件 |
-| **谁可以写** | 只有你，登录之后 |
+| **谁可以写** | 豆花本人 |
 | **谁可以留言** | 所有人，不用登录，留言所有人都看得到 |
 
 ---
