@@ -714,10 +714,13 @@
       var list = byDate[ds] || [];
       var periodCls = ps.days[ds] ? ' is-period' : (ps.predDays[ds] ? ' is-pred' : '');
       var ovuCls = (ps.ovulation && ds === ps.ovulation) ? ' is-ovu' : '';
+      /* 右上角的小花：记录过的经期是实心，预测的那几天淡一档 */
+      var bloom = ps.days[ds] ? periodBloom('') : (ps.predDays[ds] ? periodBloom(' is-faint') : '');
       cells += '<button class="cal-cell' + (out ? ' is-out' : '') +
         (ds === today ? ' is-today' : '') + (ds === calSelected ? ' is-sel' : '') + periodCls + ovuCls +
         '" type="button" data-date="' + ds + '">' +
         '<span class="cal-num">' + d.getDate() + '</span>' +
+        bloom +
         (label ? '<span class="cal-label">' + esc(label) + '</span>' : '') +
         (list.length ? '<span class="cal-dots">' +
           list.slice(0, 4).map(function () { return '<i></i>'; }).join('') + '</span>' : '') +
@@ -776,6 +779,19 @@
     var out = {};
     for (var i = 0; i < n; i++) out[addDays(start, i)] = true;
     return out;
+  }
+  /* 一朵五瓣小花，画在日历格子右上角，经期有几天就开几朵 */
+  function periodBloom(extra) {
+    var petals = '';
+    for (var k = 0; k < 5; k++) {
+      var a = (-90 + k * 72) * Math.PI / 180;
+      var cx = (12 + 3.6 * Math.cos(a)).toFixed(2);
+      var cy = (12 + 3.6 * Math.sin(a)).toFixed(2);
+      petals += '<ellipse cx="' + cx + '" cy="' + cy + '" rx="2.4" ry="4.3"' +
+        ' transform="rotate(' + (k * 72) + ' ' + cx + ' ' + cy + ')"/>';
+    }
+    return '<svg class="cal-flower' + extra + '" viewBox="0 0 24 24" aria-hidden="true">' +
+      petals + '<circle class="cal-flower-core" cx="12" cy="12" r="1.5"/></svg>';
   }
   function periodStats() {
     var list = tasks.filter(function (t) { return t.kind === 'period' && t.date; })
