@@ -211,7 +211,14 @@ input[type=date].inp{color-scheme:light}
 .hero-title .main{
   position:relative;z-index:1;
   color:#4f9182;              /* 平面单色：薄荷绿，不走渐变 */
+  display:inline-flex;align-items:center;gap:.34em;
 }
+/* 两侧的四角星：比标题小一半、颜色浅一档，只做托衬 */
+.hero-title .mark{
+  flex:none;display:inline-flex;width:.46em;height:.46em;
+  color:#6fa79a;
+}
+.hero-title .mark svg{width:100%;height:100%;display:block}
 .hero-underline{width:min(300px,72vw);margin-top:5px}
 .hero-sub{
   max-width:620px;margin:22px 0 0;color:#556965;
