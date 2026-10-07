@@ -431,6 +431,98 @@
     }
   }
 
+  /* ================= 星盘 =================
+     一圈一圈向外衍射的圆环（实线 / 虚线 / 点线交替，间距由内向外变宽），
+     环上散着星点与星座连线。中心留空给标题，三层各自转动（见 styles.css）。 */
+  function buildAstrolabe() {
+    var targets = document.querySelectorAll('.astro svg');
+    if (!targets.length) return;
+    var C = 350;
+    /* 九道环：半径由内向外间距逐渐变宽，像水波一圈圈扩大 */
+    var RINGS = [
+      { r: 78,  c: '#a8d3c5', o: .55, w: 1,   dash: '' },
+      { r: 106, c: '#b9cfe8', o: .45, w: 1,   dash: '1 7' },
+      { r: 134, c: '#cfc6e8', o: .42, w: .8,  dash: '' },
+      { r: 168, c: '#a8d3c5', o: .5,  w: 1,   dash: '6 10' },
+      { r: 198, c: '#b9cfe8', o: .4,  w: .8,  dash: '' },
+      { r: 232, c: '#cfc6e8', o: .38, w: 1,   dash: '1 9' },
+      { r: 268, c: '#a8d3c5', o: .36, w: .9,  dash: '10 14' },
+      { r: 306, c: '#b9cfe8', o: .32, w: .8,  dash: '' },
+      { r: 346, c: '#cfc6e8', o: .3,  w: 1,   dash: '1 12' }
+    ];
+    function ringHTML(band) {
+      return band.map(function (b) {
+        return '<circle cx="' + C + '" cy="' + C + '" r="' + b.r + '" stroke="' + b.c +
+          '" stroke-width="' + b.w + '" opacity="' + b.o + '"' +
+          (b.dash ? ' stroke-dasharray="' + b.dash + '"' : '') + '/>';
+      }).join('');
+    }
+
+    /* 星点：沿着环带散布（细碎的底星） */
+    function starPos(k) {
+      var ang = (k * 53) % 360;
+      var rr = RINGS[(k * 3) % RINGS.length].r + ((k * 11) % 22) - 11;
+      var a = ang * Math.PI / 180;
+      return { x: C + Math.sin(a) * rr, y: C - Math.cos(a) * rr };
+    }
+    /* 四角星图标：用星形代替圆点，绿色 / 蓝色交替，免得看着像脏点 */
+    var STAR_COLORS = ['#a8d3c5', '#b9cfe8', '#a8d3c5', '#cfc6e8'];
+    function starGlyph(x, y, r, color, opacity) {
+      var i = r * 0.3;
+      return '<path d="M' + x.toFixed(1) + ' ' + (y - r).toFixed(1) +
+        ' L' + (x + i).toFixed(1) + ' ' + (y - i).toFixed(1) +
+        ' L' + (x + r).toFixed(1) + ' ' + y.toFixed(1) +
+        ' L' + (x + i).toFixed(1) + ' ' + (y + i).toFixed(1) +
+        ' L' + x.toFixed(1) + ' ' + (y + r).toFixed(1) +
+        ' L' + (x - i).toFixed(1) + ' ' + (y + i).toFixed(1) +
+        ' L' + (x - r).toFixed(1) + ' ' + y.toFixed(1) +
+        ' L' + (x - i).toFixed(1) + ' ' + (y - i).toFixed(1) + ' Z" fill="' + color + '" stroke="none" opacity="' + opacity + '"/>';
+    }
+    var stars = '';
+    for (var k = 0; k < 34; k++) {
+      var p = starPos(k);
+      stars += starGlyph(p.x, p.y, 1.7 + ((k * 5) % 4) * 0.5, STAR_COLORS[k % STAR_COLORS.length], (0.5 + ((k * 3) % 3) * 0.16).toFixed(2));
+    }
+
+    /* 星座：几组小图案（北斗、仙后 W、三角、钩子、风筝），
+       每颗星画成大小不一的点，再用短线连起来——这样才有"星座"的样子 */
+    var CONSTELLATIONS = [
+      { x: 208, y: 168, rot: -16, s: 1.0, pts: [[0, 0], [16, -10], [32, -12], [46, -4], [58, 8], [74, 6], [88, 14]] },
+      { x: 468, y: 206, rot: 12, s: 1.0, pts: [[-34, 0], [-18, 14], [-2, -8], [14, 12], [30, -4]] },
+      { x: 262, y: 508, rot: -6, s: 1.05, pts: [[0, -18], [18, 12], [-16, 14], [0, -18]] },
+      { x: 524, y: 462, rot: 24, s: 1.0, pts: [[0, 0], [14, 12], [28, 10], [36, -6], [28, -18]] },
+      { x: 348, y: 296, rot: 0, s: 0.95, pts: [[-22, -10], [0, -22], [22, -10], [0, 6], [0, -22]] },
+      { x: 152, y: 356, rot: 38, s: 0.9, pts: [[0, 0], [18, 5], [28, 20]] }
+    ];
+    CONSTELLATIONS.forEach(function (c) {
+      var rad = c.rot * Math.PI / 180, cos = Math.cos(rad), sin = Math.sin(rad);
+      var pts = c.pts.map(function (q) {
+        var x = q[0] * c.s, y = q[1] * c.s;
+        return { x: c.x + x * cos - y * sin, y: c.y + x * sin + y * cos };
+      });
+      stars += '<path d="' + pts.map(function (q, i) {
+        return (i ? 'L' : 'M') + q.x.toFixed(1) + ' ' + q.y.toFixed(1);
+      }).join(' ') + '" opacity=".5"/>';
+      pts.forEach(function (q, i) {
+        stars += starGlyph(q.x, q.y, i % 2 === 0 ? 4.2 : 2.8,
+          i % 2 === 0 ? '#a8d3c5' : '#b9cfe8', i % 2 === 0 ? '.95' : '.7');
+      });
+    });
+    [[250, 40], [470, 300], [150, 520], [540, 120]].forEach(function (q) {
+      var x = q[0], y = q[1];
+      stars += '<path d="M' + x + ' ' + (y - 9) + ' L' + (x + 2.6) + ' ' + (y - 2.6) + ' L' + (x + 9) + ' ' + y +
+        ' L' + (x + 2.6) + ' ' + (y + 2.6) + ' L' + x + ' ' + (y + 9) + ' L' + (x - 2.6) + ' ' + (y + 2.6) +
+        ' L' + (x - 9) + ' ' + y + ' L' + (x - 2.6) + ' ' + (y - 2.6) + ' Z" fill="currentColor" stroke="none" opacity=".7"/>';
+    });
+
+    var markup =
+      '<g class="g-in" fill="none" stroke-linecap="round">' + ringHTML(RINGS.slice(0, 3)) + '</g>' +
+      '<g class="g-star" fill="none" stroke-linecap="round">' + ringHTML(RINGS.slice(3, 6)) + '</g>' +
+      '<g class="g-out" fill="none" stroke-linecap="round">' + ringHTML(RINGS.slice(6)) + '</g>' +
+      '<g class="g-in" fill="none" stroke="#b9cfe8" stroke-width="1" stroke-linecap="round">' + stars + '</g>';
+    Array.prototype.forEach.call(targets, function (el) { el.innerHTML = markup; });
+  }
+
   function buildChips() {
     var html = '<button class="chip is-active" data-cat="all">全部</button>';
     CATEGORIES.forEach(function (c) {
@@ -1114,6 +1206,7 @@
           : '') +
       '</div>' +
       '</div>';
+    html += '<div class="astro astro-reader" aria-hidden="true"><svg viewBox="0 0 700 700"></svg></div>';
     html += '<article class="reader">';
     html += '<div class="detail-head">' +
       '<div class="card-meta">' + catTagHTML(it.category) +
@@ -1144,6 +1237,7 @@
       '</div>';
     html += '</article>';
     $('#detailContent').innerHTML = html;
+    buildAstrolabe();          // 阅读页里那份星盘也要画出来
     openModal('detailModal');
     if (canEdit) {
       $('#editEntryBtn').onclick = function () { closeModal('detailModal'); openEditor(it.id); };
@@ -1821,6 +1915,7 @@
 
   /* ---------- 启动 ---------- */
   function init() {
+    buildAstrolabe();
     buildChips();
     buildCategoryOptions();
     bindEvents();          // 先把交互接上，页面不会白着

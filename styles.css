@@ -1,6 +1,14 @@
 /* 豆花的口袋 —— 样式表
    风格：米白纸感底 + 低饱和薄荷绿 / 雾蓝，轻盈、带一点幻想气息 */
 
+/* 标题用的设计字体：Zen Maru Gothic 700（圆润黑体，SIL OFL 授权）
+   只裁剪了「豆花的口袋」五个字，约 2KB，放在 fonts/ 里自托管。 */
+@font-face{
+  font-family:'DH Title';
+  src:url('fonts/logo-title.woff2') format('woff2');
+  font-weight:700;font-style:normal;font-display:swap;
+}
+
 :root{
   --ink:#2b3a37;
   --ink-2:#41534f;
@@ -87,7 +95,7 @@ body::before{
 .topbar-in{display:flex;align-items:center;gap:18px;justify-content:space-between;padding:12px 0;flex-wrap:wrap}
 .brand{display:flex;align-items:center;gap:11px}
 .brand-text{display:flex;flex-direction:column;line-height:1.28}
-.brand-text strong{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:.12em;color:#2f4a44}
+.brand-text strong{font-family:'DH Title',var(--display);font-weight:700;font-size:19px;letter-spacing:.03em;color:#2f4a44}
 .topbar-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 
 .search{position:relative}
@@ -160,19 +168,25 @@ input[type=date].inp{color-scheme:light}
 /* ---------- 首屏 ---------- */
 .hero{position:relative;padding:70px 0 58px;overflow:hidden}
 .hero-in{position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center}
+/* 标题区的柔和底：让大字和下面几行小字压住星盘，读起来干净 */
+.hero-in::before{
+  content:"";position:absolute;left:50%;top:54%;transform:translate(-50%,-50%);
+  width:min(900px,100vw);height:min(520px,70vh);border-radius:50%;
+  background:radial-gradient(closest-side, rgba(252,253,251,.84), rgba(252,253,251,.55) 58%, rgba(252,253,251,0) 100%);
+  z-index:-1;pointer-events:none;
+}
 
-.hero-orbit{
-  position:absolute;left:50%;top:50%;transform:translate(-50%,-54%);
-  width:min(600px,88vw);aspect-ratio:1;pointer-events:none;
-  animation:spin 260s linear infinite;
+/* ---------- 旋转星盘 ---------- */
+.astro{
+  position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);
+  width:max(132vmin,960px);aspect-ratio:1;pointer-events:none;z-index:-1;opacity:.62;
 }
-.hero-orbit svg{width:100%;height:100%;display:block}
-/* 关键帧里必须重复一遍居中位移：否则 transform 列表和基础值对不上，
-   浏览器会去插值两个不同的矩阵，圆环会一点点飘偏 */
-@keyframes spin{
-  from{transform:translate(-50%,-54%) rotate(0deg)}
-  to{transform:translate(-50%,-54%) rotate(360deg)}
-}
+.astro svg{width:100%;height:100%;display:block;overflow:visible}
+/* 三层各自转，速度和方向都不同，像真星盘的几层刻度盘 */
+.astro .g-out{transform-box:view-box;transform-origin:350px 350px;animation:astroSpin 420s linear infinite}
+.astro .g-star{transform-box:view-box;transform-origin:350px 350px;animation:astroSpin 300s linear infinite reverse}
+.astro .g-in{transform-box:view-box;transform-origin:350px 350px;animation:astroSpin 540s linear infinite}
+@keyframes astroSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 
 .spark{position:absolute;pointer-events:none;animation:bob 6.5s ease-in-out infinite}
 .spark svg{display:block;width:100%;height:100%}
@@ -181,27 +195,22 @@ input[type=date].inp{color-scheme:light}
 .spark-3{right:18%;bottom:17%;width:18px;height:18px;animation-duration:8.5s;animation-delay:-4s}
 .spark-4{left:15%;bottom:13%;width:9px;height:9px;animation-duration:6.8s;animation-delay:-1.2s}
 
-.hero-kicker{
-  margin:24px 0 0;font-size:11.5px;letter-spacing:.42em;text-indent:.42em;
-  color:#93b3a9;text-transform:uppercase;
+.hero-meta{
+  display:flex;align-items:center;justify-content:center;margin:26px 0 0;
+  color:#9db8b0;font-size:10.5px;letter-spacing:.3em;text-indent:.3em;
 }
+.hero-meta span{white-space:nowrap}
 .hero-title{
   position:relative;
-  margin:10px 0 0;
-  font-family:var(--display);font-weight:800;
-  font-size:clamp(38px,7vw,64px);
-  letter-spacing:.06em;line-height:1.12;
+  margin:14px 0 0;
+  font-family:'DH Title',var(--display);font-weight:700;
+  font-size:clamp(32px,5.6vw,52px);
+  letter-spacing:-0.01em;line-height:1.26;
 }
 .hero-title .tt{display:block;white-space:nowrap}
-.hero-title .ghost{
-  position:absolute;left:6px;top:7px;z-index:0;
-  color:#cde8de;user-select:none;
-}
 .hero-title .main{
   position:relative;z-index:1;
-  background:linear-gradient(102deg,#2f7360 4%,#3f7ba6 52%,#7d74bb 100%);
-  -webkit-background-clip:text;background-clip:text;
-  color:#2f7360;-webkit-text-fill-color:transparent;
+  color:#4f9182;              /* 平面单色：薄荷绿，不走渐变 */
 }
 .hero-underline{width:min(300px,72vw);margin-top:5px}
 .hero-sub{
@@ -511,15 +520,16 @@ input[type=date].inp{color-scheme:light}
 .modal-card-form{width:min(760px,100%)}
 
 /* ---------- 详情：整屏阅读页（不再是浮层小框） ---------- */
-.modal.modal-full{padding:0;background:var(--bg);backdrop-filter:none;align-items:stretch}
+.modal.modal-full{padding:0;background:transparent;backdrop-filter:none;align-items:stretch}
 .modal-card.modal-card-full{
   width:100%;max-width:none;max-height:none;height:100%;
   border:0;border-radius:0;box-shadow:none;padding:0;
   background:
     radial-gradient(900px 520px at 8% -12%, rgba(168,214,199,.28), transparent 62%),
     radial-gradient(760px 460px at 94% -4%, rgba(178,203,232,.26), transparent 62%),
-    var(--bg);
+    var(--bg);              /* 底色做实：阅读页里放了一份星盘，不用透出首页内容 */
 }
+.astro-reader{z-index:0;opacity:.5}
 .reader-bar{
   position:sticky;top:0;z-index:6;
   display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -534,7 +544,7 @@ input[type=date].inp{color-scheme:light}
 }
 .reader-back:hover{color:var(--sage-deep)}
 .reader-actions{display:flex;gap:10px}
-.reader{width:min(960px,92vw);margin:0 auto;padding:28px 0 90px}
+.reader{position:relative;z-index:1;width:min(960px,92vw);margin:0 auto;padding:28px 0 90px}
 .reader .detail-head h2{font-size:clamp(22px,3.2vw,31px)}
 .reader .detail-summary{font-size:15px}
 .reader .detail-body p{font-size:16px}

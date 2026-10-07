@@ -11,6 +11,9 @@
 </head>
 <body>
 
+<!-- 旋转星盘：全站固定背景，三层各自转动，由 app.js 生成 -->
+<div class="astro" aria-hidden="true"><svg viewBox="0 0 700 700" id="astroSvg"></svg></div>
+
 <header class="topbar">
   <div class="wrap topbar-in">
     <a class="brand" href="#" id="brandLink">
@@ -43,21 +46,8 @@
 
 <main>
   <section class="hero">
-    <div class="hero-orbit" aria-hidden="true">
-      <svg viewBox="0 0 400 400">
-        <circle cx="200" cy="200" r="184" fill="none" stroke="#a8d3c5" stroke-width="1.2" stroke-dasharray="2 10" opacity=".75"/>
-        <circle cx="200" cy="200" r="148" fill="none" stroke="#bdd2ea" stroke-width="1" opacity=".45"/>
-        <circle cx="200" cy="52" r="4.5" fill="#a8d3c5"/>
-        <circle cx="331" cy="268" r="3.5" fill="#bdd2ea"/>
-        <circle cx="69" cy="268" r="3.5" fill="#cfc6e8"/>
-        <circle cx="200" cy="348" r="2.5" fill="#a8d3c5" opacity=".8"/>
-      </svg>
-    </div>
-
     <span class="spark spark-1" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#a8d3c5"/></svg></span>
-    <span class="spark spark-2" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#bdd2ea"/></svg></span>
     <span class="spark spark-3" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#cfc6e8"/></svg></span>
-    <span class="spark spark-4" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 0 L11.8 6.4 L18 10 L11.8 13.6 L10 20 L8.2 13.6 L2 10 L8.2 6.4 Z" fill="#f0c9b0"/></svg></span>
 
     <div class="wrap hero-in">
       <span class="mark-circle">
@@ -66,16 +56,11 @@
           <path d="M12.2 15 H27.8 A2.2 2.2 0 0 1 30 17.2 V22.2 C30 27.4 25.5 31.6 20 31.6 C14.5 31.6 10 27.4 10 22.2 V17.2 A2.2 2.2 0 0 1 12.2 15 Z" stroke="#4f9182" stroke-width="2.4" stroke-linejoin="round"/>
         </svg>
       </span>
-      <p class="hero-kicker">DOUHUA'S POCKET</p>
-      <h1 class="hero-title">
-        <span class="tt ghost" aria-hidden="true">豆花的口袋</span>
-        <span class="tt main">豆花的口袋</span>
-      </h1>
-      <svg class="hero-underline" viewBox="0 0 260 14" aria-hidden="true">
-        <path d="M5 9.5 C 62 2.5, 118 12.5, 172 6.5 C 205 3.2, 232 5.4, 255 8.6" fill="none" stroke="#96cdbb" stroke-width="3" stroke-linecap="round"/>
-      </svg>
+      <div class="hero-meta" aria-hidden="true">
+        <span>DOUHUA'S POCKET · EST. 2026</span>
+      </div>
+      <h1 class="hero-title"><span class="tt main">豆花的口袋</span></h1>
       <p class="hero-sub">碎片的有趣的东西统统丢进来熬成一锅。<br>我们的宗旨是：让哲学无法成为一门学问，使思想不能蜕生任何流派。只能交谈、争吵、诅咒，只有表白、忏悔、祈祷。</p>
-      <div class="rule" aria-hidden="true"><i></i><span>✦</span><i></i></div>
       <div class="hero-actions">
         <button class="btn btn-primary" id="heroAdd">＋ 放进一件</button>
         <button class="btn btn-ghost" id="heroBrowse">扒拉一番</button>
