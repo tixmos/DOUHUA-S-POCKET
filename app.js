@@ -657,15 +657,17 @@
     $('#notesView').hidden = (v !== 'notes');
     $('#todoView').hidden = (v !== 'todo');
     $('#calView').hidden = (v !== 'calendar');
+    $('#achView').hidden = (v !== 'ach');
     if (v === 'todo') renderTodos();
     if (v === 'calendar') {
       if (!calSelected) calSelected = ymd(new Date());
       renderCalendar();
     }
+    if (v === 'ach') renderAchievements();
   }
 
   /* ---------- 增删改 ---------- */
-  function afterTaskChange() { renderTodos(); renderCalendar(); }
+  function afterTaskChange() { renderTodos(); renderCalendar(); evaluateAchievements(); }
   function taskFail(err) {
     toast('保存失败：' + ((err && err.message) ? err.message : '未知错误'));
     return loadTasks().then(afterTaskChange);
@@ -744,6 +746,286 @@
       toast('已添加');
     }
     closeModal('taskModal');
+  }
+
+  /* ================= 成就 ================= */
+  var ACH_KEY = 'douhua-pocket-achievements-v1';
+  var STATS_KEY = 'douhua-pocket-stats-v1';
+  var ach = {};            // id -> 解锁时间
+  var achReady = true;     // 线上还没建 achievements 表时为 false
+  var achQueue = [];
+  var achTimer = null;
+
+  var ACHIEVEMENTS = [
+    /* —— 内容 —— */
+    { id: 'first-entry', name: '第一勺', icon: '🥢', tier: 'common',
+      desc: '发布第一条内容。锅已经架好了。',
+      check: function (c) { return c.entries.length >= 1; } },
+    { id: 'five-types', name: '五行不缺', icon: '🖐', tier: 'rare',
+      desc: '图文、图片、视频、链接、读书笔记，五样都齐了。',
+      check: function (c) {
+        var s = {};
+        c.entries.forEach(function (e) { s[e.type] = 1; });
+        return ['note', 'image', 'video', 'link', 'book'].every(function (t) { return s[t]; });
+      } },
+    { id: 'nine-cats', name: '九宫格', icon: '🧩', tier: 'legend',
+      desc: '九个分类，每格都塞了点东西。',
+      check: function (c) {
+        var s = {};
+        c.entries.forEach(function (e) { if (e.category) s[e.category] = 1; });
+        return CATEGORIES.every(function (x) { return s[x]; });
+      } },
+    { id: 'twenty', name: '二十而立', icon: '📦', tier: 'rare',
+      desc: '收藏满 20 条。',
+      check: function (c) { return c.entries.length >= 20; } },
+    { id: 'tenk', name: '一万字而已', icon: '✍️', tier: 'legend',
+      desc: '所有正文加起来超过一万字（摘录不算）。',
+      check: function (c) {
+        var n = 0;
+        c.entries.forEach(function (e) { n += String(e.body || '').length; });
+        return n >= 10000;
+      } },
+    { id: 'ten-images', name: '有图有真相', icon: '📷', tier: 'common',
+      desc: '上传满 10 张图片。',
+      check: function (c) {
+        var n = 0;
+        c.entries.forEach(function (e) { n += (e.images || []).length; });
+        return n >= 10;
+      } },
+    { id: 'night-owl', name: '熬夜的证据', icon: '🌙', tier: 'rare',
+      desc: '在凌晨 0 点到 5 点之间发过内容。',
+      check: function (c) {
+        return c.entries.some(function (e) {
+          var h = new Date(e.createdAt).getHours();
+          return !isNaN(h) && h >= 0 && h < 5;
+        });
+      } },
+    { id: 'streak-7', name: '七日谈', icon: '📆', tier: 'rare',
+      desc: '连续 7 天都有发布。',
+      check: function (c) {
+        return hasStreak(c.entries.map(function (e) { return String(e.createdAt || e.date || '').slice(0, 10); }), 7);
+      } },
+
+    /* —— 读书 —— */
+    { id: 'first-wish', name: '先码为敬', icon: '🔖', tier: 'common',
+      desc: '添加第一本想读的书。',
+      check: function (c) { return c.books.length >= 1; } },
+    { id: 'first-read', name: '居然读完了', icon: '📗', tier: 'common',
+      desc: '第一本书打了钩。',
+      check: function (c) { return c.books.some(function (b) { return b.done; }); } },
+    { id: 'ten-read', name: '书架不是摆设', icon: '📚', tier: 'legend',
+      desc: '累计读完 10 本。',
+      check: function (c) { return c.books.filter(function (b) { return b.done; }).length >= 10; } },
+    { id: 'five-genres', name: '杂食动物', icon: '🍽', tier: 'rare',
+      desc: '书单覆盖 5 种不同类型。',
+      check: function (c) {
+        var s = {};
+        c.books.forEach(function (b) { if (b.genre) s[b.genre] = 1; });
+        return Object.keys(s).length >= 5;
+      } },
+
+    /* —— 待办与日历 —— */
+    { id: 'first-done', name: '搞定一件', icon: '✅', tier: 'common',
+      desc: '完成第一条待办。',
+      check: function (c) { return c.todos.some(function (t) { return t.done; }); } },
+    { id: 'fifty-done', name: '干掉了五十件', icon: '💪', tier: 'legend',
+      desc: '累计完成 50 条待办。',
+      check: function (c) { return c.todos.filter(function (t) { return t.done; }).length >= 50; } },
+    { id: 'clear-day', name: '今日事今日毕', icon: '🌤', tier: 'rare',
+      desc: '把某一天的待办全部打了钩。',
+      check: function (c) {
+        return Object.keys(c.byDay).some(function (d) {
+          var l = c.byDay[d];
+          return l.length && l.every(function (t) { return t.done; });
+        });
+      } },
+    { id: 'first-event', name: '钉在日历上', icon: '📌', tier: 'common',
+      desc: '第一次给某一天添加事项。',
+      check: function (c) { return c.events.length >= 1; } },
+    { id: 'solar-term', name: '踩着节气走', icon: '🌾', tier: 'rare',
+      desc: '在二十四节气当天发过内容。',
+      check: function (c) {
+        return c.entries.some(function (e) {
+          if (!e.date || String(e.date).length < 10) return false;
+          return !!termOfDay(parseYmd(e.date));
+        });
+      } },
+
+    /* —— 彩蛋（解锁前看不见是什么） —— */
+    { id: 'first-visitor', name: '有人敲门', icon: '🚪', tier: 'common',
+      desc: '收到第一条访客留言。',
+      check: function (c) { return c.commentTotal >= 1; } },
+    { id: 'hot-entry', name: '门庭若市', icon: '🏮', tier: 'legend', hidden: true,
+      desc: '单条内容收到 10 条留言。',
+      check: function (c) {
+        return c.entries.some(function (e) { return (e.comments || []).length >= 10; });
+      } },
+    { id: 'new-year-eve', name: '守岁', icon: '🧧', tier: 'rare', hidden: true,
+      desc: '除夕当天发过内容。',
+      check: function (c) {
+        return c.entries.some(function (e) {
+          return e.date && String(e.date).length >= 10 && holidayOf(parseYmd(e.date)) === '除夕';
+        });
+      } },
+    { id: 'anniversary', name: '一年了，还活着', icon: '🎂', tier: 'legend', hidden: true,
+      desc: '网站满一周年。',
+      check: function (c) {
+        if (!c.entries.length) return false;
+        var first = c.entries.map(function (e) { return e.createdAt || ''; }).sort()[0];
+        return !!first && (Date.now() - new Date(first).getTime()) >= 365 * 864e5;
+      } },
+    { id: 'backup', name: '有备无患', icon: '🎒', tier: 'rare', hidden: true,
+      desc: '导出过 5 次备份。',
+      check: function (c) { return (c.stats.exports || 0) >= 5; } }
+  ];
+
+  function readStats() {
+    try { return JSON.parse(localStorage.getItem(STATS_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function bumpStat(k) {
+    var s = readStats();
+    s[k] = (s[k] || 0) + 1;
+    try { localStorage.setItem(STATS_KEY, JSON.stringify(s)); } catch (e) {}
+    return s[k];
+  }
+  function readAchStore() {
+    try { return JSON.parse(localStorage.getItem(ACH_KEY) || '{}'); } catch (e) { return {}; }
+  }
+  function writeAchStore() {
+    try { localStorage.setItem(ACH_KEY, JSON.stringify(ach)); } catch (e) {}
+  }
+  function hasStreak(days, n) {
+    var set = {};
+    days.forEach(function (d) { if (d && d.length === 10) set[d] = 1; });
+    var list = Object.keys(set).sort();
+    var best = 0, run = 0, prev = null;
+    list.forEach(function (d) {
+      if (prev) {
+        var diff = (parseYmd(d) - parseYmd(prev)) / 86400000;
+        run = (diff === 1) ? run + 1 : 1;
+      } else { run = 1; }
+      prev = d;
+      if (run > best) best = run;
+    });
+    return best >= n;
+  }
+  function achContext() {
+    var entries = items || [];
+    var byDay = {};
+    tasks.forEach(function (t) { if (t.date && t.kind === 'todo') (byDay[t.date] = byDay[t.date] || []).push(t); });
+    return {
+      entries: entries,
+      books: tasks.filter(function (t) { return t.kind === 'book'; }),
+      todos: tasks.filter(function (t) { return t.kind === 'todo'; }),
+      events: tasks.filter(function (t) { return t.kind === 'event'; }),
+      byDay: byDay,
+      stats: readStats(),
+      commentTotal: entries.reduce(function (n, e) { return n + (e.comments || []).length; }, 0)
+    };
+  }
+  function safeCheck(a, ctx) { try { return !!a.check(ctx); } catch (e) { return false; } }
+
+  function pushAch(ids) {
+    if (!ONLINE || !achReady || !ids.length) return;
+    sb.from('achievements')
+      .upsert(ids.map(function (id) { return { id: id, unlocked_at: ach[id] }; }),
+        { onConflict: 'id', ignoreDuplicates: true })
+      .then(function () {})
+      .catch(function () {});
+  }
+
+  function loadAchievements() {
+    if (!ONLINE) { ach = readAchStore(); achReady = true; return Promise.resolve(); }
+    if (!canEdit) { ach = {}; achReady = true; return Promise.resolve(); }
+    return sb.from('achievements').select('*').then(function (res) {
+      if (res.error) throw res.error;
+      ach = {};
+      (res.data || []).forEach(function (r) { ach[r.id] = r.unlocked_at; });
+      achReady = true;
+      // 本地记过、线上还没有的（比如建表之前解锁的）补传一次
+      var local = readAchStore(), merged = [];
+      Object.keys(local).forEach(function (id) {
+        if (!ach[id] && ACHIEVEMENTS.some(function (a) { return a.id === id; })) {
+          ach[id] = local[id];
+          merged.push(id);
+        }
+      });
+      if (merged.length) pushAch(merged);
+    }).catch(function () {
+      ach = readAchStore();     // 表还没建就先存在本地，功能照样能用
+      achReady = false;
+    });
+  }
+
+  function unlockAchievements(ids) {
+    var now = new Date().toISOString();
+    var fresh = [];
+    ids.forEach(function (id) { if (!ach[id]) { ach[id] = now; fresh.push(id); } });
+    if (!fresh.length) return;
+    writeAchStore();
+    pushAch(fresh);
+    achQueue = achQueue.concat(fresh);
+    showAchToast();
+  }
+  function evaluateAchievements() {
+    if (!canEdit) return;
+    var ctx = achContext();
+    var newly = ACHIEVEMENTS.filter(function (a) { return !ach[a.id] && safeCheck(a, ctx); })
+      .map(function (a) { return a.id; });
+    unlockAchievements(newly);
+    renderAchievements();
+  }
+
+  function showAchToast() {
+    if (achTimer || !achQueue.length) return;
+    var id = achQueue.shift();
+    var a = ACHIEVEMENTS.filter(function (x) { return x.id === id; })[0];
+    if (!a) { showAchToast(); return; }
+    var el = $('#achToast');
+    if (!el) return;
+    $('#achToastIcon').textContent = a.icon;
+    $('#achToastName').textContent = a.name;
+    $('#achToastDesc').textContent = a.desc;
+    el.hidden = false;
+    el.classList.remove('is-on');
+    void el.offsetWidth;                 // 强制重排，让动画重新播一次
+    el.classList.add('is-on');
+    achTimer = setTimeout(function () {
+      el.classList.remove('is-on');
+      achTimer = null;
+      setTimeout(function () {
+        if (!achQueue.length) el.hidden = true;
+        showAchToast();
+      }, 460);
+    }, 4200);
+  }
+
+  function renderAchievements() {
+    var grid = $('#achGrid');
+    if (!grid) return;
+    var got = ACHIEVEMENTS.filter(function (a) { return ach[a.id]; }).length;
+    $('#achProgress').textContent = got + ' / ' + ACHIEVEMENTS.length;
+    $('#achBar').style.width = Math.round(got / ACHIEVEMENTS.length * 100) + '%';
+    var setup = $('#achSetup');
+    if (setup) {
+      setup.hidden = achReady;
+      if (!achReady) {
+        setup.innerHTML = '成就现在只记在这台电脑的浏览器里。想在手机上也能看到同一份进度，' +
+          '去 Supabase 的 <b>SQL Editor</b> 跑一下 <code>supabase-schema.sql</code> 末尾那段（建 <code>achievements</code> 表），然后刷新。';
+      }
+    }
+    grid.innerHTML = ACHIEVEMENTS.map(function (a) {
+      var on = !!ach[a.id];
+      var masked = a.hidden && !on;
+      return '<div class="ach' + (on ? ' is-on' : '') + ' tier-' + (a.tier || 'common') + '">' +
+        '<div class="ach-icon">' + (masked ? '❔' : a.icon) + '</div>' +
+        '<div class="ach-body">' +
+          '<div class="ach-title">' + (masked ? '？？？' : esc(a.name)) + '</div>' +
+          '<div class="ach-desc">' + (masked ? '一条隐藏成就，解锁后才知道是什么。' : esc(a.desc)) + '</div>' +
+          (on ? '<div class="ach-date">' + esc(fmtDate(String(ach[a.id]).slice(0, 10))) + ' 解锁</div>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
   }
 
   /* ---------- 详情 ---------- */
@@ -899,6 +1181,7 @@
             $('#commentCount').textContent = String($('#commentList').children.length);
             $('#cText').value = '';
             toast('已发表');
+            evaluateAchievements();
           })
           .catch(function (err) { toast('发表失败：' + err.message); });
         return;
@@ -914,6 +1197,7 @@
       $('#cText').value = '';
       render();
       toast('已发表');
+      evaluateAchievements();
     });
 
     $('#commentList').addEventListener('click', function (e) {
@@ -1012,6 +1296,9 @@
     loadTasks().then(function () {
       renderTodos();
       if (view === 'calendar') renderCalendar();
+      return loadAchievements();
+    }).then(function () {
+      evaluateAchievements();
     });
   }
 
@@ -1211,7 +1498,7 @@
         editingId = null;
         closeModal('editorModal');
         toast(isEdit ? '已更新，别人刷新就能看到' : '已发到线上');
-        return refreshOnline();
+        return refreshOnline().then(evaluateAchievements);
       }).catch(function (err) {
         toast('保存失败：' + err.message);
       });
@@ -1233,6 +1520,7 @@
     editingId = null;
     closeModal('editorModal');
     toast(isEdit ? '已更新' : '已放进口袋');
+      evaluateAchievements();
   }
 
   /* ---------- 文件读取 ---------- */
@@ -1299,6 +1587,8 @@
   function exportBackup() {
     downloadFile('douhua-pocket-' + todayStr() + '.json', JSON.stringify(items, null, 2));
     toast('已导出备份文件');
+    bumpStat('exports');
+    evaluateAchievements();
   }
 
   function exportPublish() {
@@ -1542,7 +1832,12 @@
       render();
       initAuth();
       subscribeRealtime();
-      loadTasks().then(function () { renderTodos(); });
+      loadTasks().then(function () {
+        renderTodos();
+        return loadAchievements();
+      }).then(function () {
+        evaluateAchievements();
+      });
     });
   }
 

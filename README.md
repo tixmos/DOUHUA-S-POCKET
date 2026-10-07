@@ -27,6 +27,13 @@
 
 **忘了密码**：Supabase 后台 → Authentication → Users → 点你的账号 → 重设密码。
 
+**成就**（第四个标签，同样只有你登录后才看得到）：
+
+- 一共 22 个，分内容、读书、待办与日历、彩蛋四组；名字都带点玩笑，比如「第一勺」「先码为敬」「居然读完了」「熬夜的证据」「一年了，还活着」
+- 打开就有：能算的成就（发了几条、读完几本、有没有连续打卡）会当场判定，历史数据也会**补发**，所以第一次进这个页面就会跳一串
+- 解锁时右下角弹一个小卡片，配一圈星星迸发的动画；一次解锁多个会排队依次弹
+- 页面顶部是总进度条，未解锁的显示条件，彩蛋类显示「？？？」直到解锁
+
 ## 现在有哪些功能
 
 - **五种条目**：图文 / 图片 / 视频 / 链接 / 读书笔记
@@ -41,6 +48,7 @@
 - **备份**：页脚「导出备份」能把全部内容导成一个 JSON
 - **待办清单**：待读书目（书名 / 作者 / 类型）+ 待办事项，可打钩完成；**只有你能看到**，访客看不到这个标签
 - **日历**：月视图，可给每天加事项，自动标出节假日与二十四节气；带日期的待办会一起显示
+- **成就系统**：22 个成就，带星星动画的解锁提示、总进度条、隐藏彩蛋；同样只有你能看到
 
 ## 数据、备份和免费额度（重要，请看完）
 
@@ -108,7 +116,7 @@ git push -u origin main
 **B. 重建 Supabase 后端**
 
 1. https://supabase.com 建一个项目，Region 选 Singapore 或 Tokyo
-2. 左侧 **SQL Editor** → New query → 把 `supabase-schema.sql` 整个粘进去 → **Run**（文件末尾那段是 `tasks` 表，待办和日历用的；已经跑过前面部分的话，只跑这一段也行）
+2. 左侧 **SQL Editor** → New query → 把 `supabase-schema.sql` 整个粘进去 → **Run**（文件末尾是 `tasks` 表和 `achievements` 表，分别给待办/日历、成就用；已经跑过前面部分的话，只跑这两段也行）
 3. **Authentication → Users → Add user** 建你自己的账号（勾 Auto Confirm User），然后到 Authentication 设置里**关掉 Allow new users to sign up**
 4. **Project Settings → API** 里把 Project URL 和 anon public 两个值填进 `supabase-config.js`
 5. 把这些文件传到 GitHub：`index.html`、`styles.css`、`app.js`、`supabase-config.js`、`supabase-schema.sql`、`vendor/supabase.js`
@@ -116,6 +124,8 @@ git push -u origin main
 `supabase-schema.sql` 末尾还留了一段可选的加固 SQL：把写权限从「所有登录用户」收紧到「只有你这个 UUID」，想更保险时可以取消注释跑一遍。
 
 ## 变更记录
+
+- 加：**成就系统**（22 个，含隐藏彩蛋），右下角星星迸发的解锁动画 + 总进度条；成就进度存在 Supabase 的 `achievements` 表
 
 - 加：**待办**（待读书目 + 待办事项，可打钩完成）与**日历**（每天可加事项，标出节假日和二十四节气）；两者只有站长看得到，数据存在 Supabase 的 `tasks` 表
 

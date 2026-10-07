@@ -150,3 +150,19 @@ begin
   exception when duplicate_object then null;
   end;
 end $$;
+
+
+-- ============================================================
+-- 【成就】记录哪些成就已经解锁、什么时候解锁的
+-- 同样只给站长自己用，访客读不到
+-- ============================================================
+create table if not exists public.achievements (
+  id          text primary key,        -- 成就 id，比如 first-entry
+  unlocked_at timestamptz default now()
+);
+
+alter table public.achievements enable row level security;
+
+drop policy if exists "achievements 只有站长" on public.achievements;
+create policy "achievements 只有站长" on public.achievements
+  for all to authenticated using (true) with check (true);

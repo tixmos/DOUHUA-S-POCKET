@@ -88,6 +88,7 @@
     <button class="tab is-active" type="button" data-view="notes">收藏</button>
     <button class="tab" type="button" data-view="todo">待办</button>
     <button class="tab" type="button" data-view="calendar">日历</button>
+    <button class="tab" type="button" data-view="ach">成就</button>
   </nav>
 
   <section class="wrap list-head" id="notesHead">
@@ -145,6 +146,16 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-day" id="calDay"></div>
+  </section>
+
+  <!-- 成就 -->
+  <section class="wrap" id="achView" hidden>
+    <p class="setup-note" id="achSetup" hidden></p>
+    <div class="ach-progress">
+      <span class="ach-progress-num" id="achProgress">0 / 0</span>
+      <span class="ach-bar"><i id="achBar"></i></span>
+    </div>
+    <div class="ach-grid" id="achGrid"></div>
   </section>
 </main>
 
@@ -292,6 +303,26 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<!-- 成就解锁提示：右下角弹出，星星迸发 -->
+<div class="ach-toast" id="achToast" hidden role="status" aria-live="polite">
+  <div class="ach-burst" aria-hidden="true">
+    <i style="--tx:-30px;--ty:-26px;background:#a8d3c5"></i>
+    <i style="--tx:-4px;--ty:-38px;background:#b9cfe8"></i>
+    <i style="--tx:24px;--ty:-28px;background:#cfc6e8"></i>
+    <i style="--tx:40px;--ty:-2px;background:#a8d3c5"></i>
+    <i style="--tx:26px;--ty:26px;background:#b9cfe8"></i>
+    <i style="--tx:-2px;--ty:36px;background:#cfc6e8"></i>
+    <i style="--tx:-28px;--ty:24px;background:#f0c9b0"></i>
+    <i style="--tx:-42px;--ty:-2px;background:#a8d3c5"></i>
+  </div>
+  <div class="ach-toast-icon" id="achToastIcon">🏆</div>
+  <div class="ach-toast-text">
+    <div class="ach-toast-label">成就解锁</div>
+    <div class="ach-toast-name" id="achToastName"></div>
+    <div class="ach-toast-desc" id="achToastDesc"></div>
+  </div>
+</div>
 
 <!-- 待办 / 书目 / 日历事项 的编辑框 -->
 <div class="modal" id="taskModal" hidden>
