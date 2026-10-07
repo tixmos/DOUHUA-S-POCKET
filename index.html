@@ -131,6 +131,7 @@
     </div>
     <div class="cal-grid" id="calGrid"></div>
     <div class="cal-day" id="calDay"></div>
+    <div class="cycle-card" id="cycleCard" hidden></div>
   </section>
 
   <!-- 成就 -->
@@ -147,7 +148,8 @@
 <footer class="foot">
   <div class="wrap foot-in">
     <div class="foot-left">
-      <p>豆花的口袋 · 个人收藏</p>
+      <p>豆花的口袋</p>
+      <p class="foot-author">作者 · 豆花冰</p>
       <p class="foot-note" id="sourceNote"></p>
     </div>
     <div class="foot-actions">
@@ -178,6 +180,11 @@
       <div class="field">
         <label for="fTitle" id="titleLabel">标题 <span class="req">*</span></label>
         <input class="inp" id="fTitle" placeholder="比如：一座村庙的岁末祭仪">
+      </div>
+
+      <div class="field">
+        <label for="fAuthor">作者（可选）</label>
+        <input class="inp" id="fAuthor" placeholder="留空就不显示，比如：豆花冰">
       </div>
 
       <div class="form-grid">

@@ -212,6 +212,7 @@
       id: r.id,
       type: r.type || 'note',
       title: r.title || '',
+      author: r.author || '',
       category: r.category || '',
       date: r.date || '',
       summary: r.summary || '',
@@ -232,6 +233,7 @@
     return {
       type: it.type || 'note',
       title: it.title || '',
+      author: it.author || '',
       category: it.category || '',
       date: it.date || null,
       summary: it.summary || '',
@@ -352,6 +354,7 @@
         '<div class="card-media" data-cat="' + esc(it.category || '') + '"><span class="badge">' + esc(meta.label) + '</span>' + media + '</div>' +
         '<div class="card-body">' +
           '<div class="card-meta">' + catTagHTML(it.category) + '<time>' + esc(fmtDate(it.date)) + '</time>' +
+            (it.author ? '<span class="c-author">' + esc(it.author) + '</span>' : '') +
             (cCount ? '<span class="c-badge">评论 ' + cCount + '</span>' : '') +
           '</div>' +
           '<h3>' + esc(it.title) + '</h3>' +
@@ -543,6 +546,10 @@
   function pad2(n) { return String(n).padStart(2, '0'); }
   function ymd(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
   function parseYmd(s) { var a = String(s).split('-'); return new Date(+a[0], +a[1] - 1, +a[2]); }
+  function addDays(dateStr, n) {
+    var d = parseYmd(dateStr);
+    return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n));
+  }
 
   /* 二十四节气：21 世纪常用近似公式，小寒起、每两个月一对 */
   var TERM_C = [5.4055, 20.12, 3.87, 18.73, 5.63, 20.646, 4.81, 20.1, 5.52, 21.04, 5.678, 21.37,
@@ -692,7 +699,10 @@
     var days = new Date(y, m + 1, 0).getDate();
     var today = ymd(new Date());
     var byDate = {};
-    tasks.forEach(function (t) { if (t.date) (byDate[t.date] = byDate[t.date] || []).push(t); });
+    tasks.forEach(function (t) {
+      if (t.date && t.kind !== 'period') (byDate[t.date] = byDate[t.date] || []).push(t);
+    });
+    var ps = periodStats();
 
     var total = Math.ceil((startPad + days) / 7) * 7;
     var cells = '';
@@ -702,8 +712,10 @@
       var out = d.getMonth() !== m;
       var label = out ? holidayOf(d) : (holidayOf(d) || terms[d.getDate()] || '');
       var list = byDate[ds] || [];
+      var periodCls = ps.days[ds] ? ' is-period' : (ps.predDays[ds] ? ' is-pred' : '');
+      var ovuCls = (ps.ovulation && ds === ps.ovulation) ? ' is-ovu' : '';
       cells += '<button class="cal-cell' + (out ? ' is-out' : '') +
-        (ds === today ? ' is-today' : '') + (ds === calSelected ? ' is-sel' : '') +
+        (ds === today ? ' is-today' : '') + (ds === calSelected ? ' is-sel' : '') + periodCls + ovuCls +
         '" type="button" data-date="' + ds + '">' +
         '<span class="cal-num">' + d.getDate() + '</span>' +
         (label ? '<span class="cal-label">' + esc(label) + '</span>' : '') +
@@ -713,6 +725,7 @@
     }
     grid.innerHTML = cells;
     renderCalDay();
+    renderCycleCard();
   }
 
   function renderCalDay() {
@@ -722,7 +735,10 @@
     var d = parseYmd(calSelected);
     var label = dayLabel(d);
     var week = ['日', '一', '二', '三', '四', '五', '六'][d.getDay()];
-    var list = tasks.filter(function (t) { return t.date === calSelected; });
+    var list = tasks.filter(function (t) { return t.date === calSelected && t.kind !== 'period'; });
+    var ps = periodStats();
+    var rec = null;
+    ps.list.forEach(function (s) { if (s.date === calSelected) rec = s; });
     var html = '<div class="cal-day-head"><h4>' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日 · 星期' + week + '</h4>' +
       (label ? '<span class="cal-tag">' + esc(label) + '</span>' : '') + '</div>';
     html += '<ul class="task-list">' + (list.length
@@ -731,6 +747,19 @@
     html += '<form class="cal-add" id="calAddForm">' +
       '<input class="inp" id="calAddInput" placeholder="给这天加一件事…">' +
       '<button class="btn btn-primary btn-sm" type="submit">添加</button></form>';
+    /* 经期：这天开始 / 取消，以及这次持续几天 */
+    html += '<div class="period-row">' +
+      '<span class="period-label">经期</span>' +
+      (rec
+        ? '<button class="mini-btn" type="button" data-period="unmark">取消这次记录</button>' +
+          '<span class="period-len">持续' +
+          '<button class="step" type="button" data-period="dec" aria-label="减少">−</button>' +
+          '<b>' + ((rec.len >= 2 && rec.len <= 12) ? rec.len : ps.len) + '</b>' +
+          '<button class="step" type="button" data-period="inc" aria-label="增加">＋</button>天</span>'
+        : '<button class="mini-btn" type="button" data-period="mark">这天开始经期</button>' +
+          (ps.days[calSelected] ? '<span class="period-hint">这天在经期内</span>' :
+            (ps.predDays[calSelected] ? '<span class="period-hint">这天是预测经期</span>' : ''))) +
+      '</div>';
     box.innerHTML = html;
     $('#calAddForm').addEventListener('submit', function (e) {
       e.preventDefault();
@@ -740,7 +769,89 @@
     });
   }
 
-  function setView(v) {
+  /* ---------- 经期记录 ----------
+     存在 tasks 表里：kind='period'、date=开始那天、note=这次持续几天。
+     权限跟着 tasks 走（只有登录的站长看得到）。全部是估算，只作参考。 */
+  function rangeDays(start, n) {
+    var out = {};
+    for (var i = 0; i < n; i++) out[addDays(start, i)] = true;
+    return out;
+  }
+  function periodStats() {
+    var list = tasks.filter(function (t) { return t.kind === 'period' && t.date; })
+      .map(function (t) { return { id: t.id, date: t.date, len: parseInt(t.note, 10) || 0 }; })
+      .sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var cycles = [], lens = [];
+    for (var i = 1; i < list.length; i++) {
+      var gap = Math.round((parseYmd(list[i].date) - parseYmd(list[i - 1].date)) / 86400000);
+      if (gap >= 15 && gap <= 60) cycles.push(gap);
+    }
+    list.forEach(function (s) { if (s.len >= 2 && s.len <= 12) lens.push(s.len); });
+    var avg = function (arr, fallback) {
+      if (!arr.length) return fallback;
+      var sum = arr.reduce(function (a, b) { return a + b; }, 0);
+      return Math.round(sum / arr.length);
+    };
+    var cycle = avg(cycles, 28);
+    var len = avg(lens, 5);
+    var last = list.length ? list[list.length - 1] : null;
+    var nextStart = last ? addDays(last.date, cycle) : null;
+    var days = {};
+    list.forEach(function (s) {
+      var n = (s.len >= 2 && s.len <= 12) ? s.len : len;
+      Object.keys(rangeDays(s.date, n)).forEach(function (k) { days[k] = true; });
+    });
+    return {
+      list: list, cycle: cycle, len: len, last: last,
+      nextStart: nextStart,
+      ovulation: nextStart ? addDays(nextStart, -14) : null,
+      days: days,
+      predDays: nextStart ? rangeDays(nextStart, len) : {}
+    };
+  }
+  function renderCycleCard() {
+    var box = $('#cycleCard');
+    if (!box) return;
+    var ps = periodStats();
+    box.hidden = false;
+    var rows = [
+      ['已记录', ps.list.length ? ps.list.length + ' 次' : '还没有'],
+      ['平均周期', ps.list.length > 1 ? ps.cycle + ' 天' : ps.cycle + ' 天（默认）'],
+      ['经期时长', ps.len + ' 天'],
+      ['上次开始', ps.last ? ps.last.date : '—'],
+      ['下次预测', ps.nextStart ? ps.nextStart + ' 起 ' + ps.len + ' 天' : '—'],
+      ['预估排卵日', ps.ovulation ? ps.ovulation : '—']
+    ];
+    box.innerHTML = '<h4 class="cycle-title">周期</h4>' +
+      '<ul class="cycle-list">' + rows.map(function (r) {
+        return '<li><span>' + esc(r[0]) + '</span><b>' + esc(r[1]) + '</b></li>';
+      }).join('') + '</ul>' +
+      '<p class="cycle-note">按你自己记录的日子推算（没有历史时先按 28 天周期、5 天经期），仅供参考。点某一天可以标记或取消。</p>';
+  }
+  function markPeriod(dateStr) {
+    if (tasks.some(function (t) { return t.kind === 'period' && t.date === dateStr; })) return;
+    var ps = periodStats();
+    addTaskObj({
+      kind: 'period', title: '经期', date: dateStr,
+      note: String(ps.len || 5), author: '', genre: '',
+      done: false, doneAt: '', createdAt: new Date().toISOString()
+    });
+  }
+  function unmarkPeriod(dateStr) {
+    var rec = tasks.filter(function (t) { return t.kind === 'period' && t.date === dateStr; })[0];
+    if (rec) deleteTaskById(rec.id);
+  }
+  function adjustPeriodLen(dateStr, delta) {
+    var rec = tasks.filter(function (t) { return t.kind === 'period' && t.date === dateStr; })[0];
+    if (!rec) return;
+    var n = Math.min(12, Math.max(2, (parseInt(rec.note, 10) || 5) + delta));
+    rec.note = String(n);
+    persistTask(rec, false).catch(taskFail);
+    renderCalendar();
+    toast('经期时长记为 ' + n + ' 天');
+  }
+
+  function setView(v, keepHash) {
     view = v;
     $$('#tabs .tab').forEach(function (b) {
       b.classList.toggle('is-active', b.getAttribute('data-view') === v);
@@ -756,6 +867,11 @@
       renderCalendar();
     }
     if (v === 'ach') renderAchievements();
+    if (!keepHash) {
+      try {
+        history.replaceState(null, '', v === 'notes' ? location.pathname + location.search : '#' + v);
+      } catch (e) {}
+    }
   }
 
   /* ---------- 增删改 ---------- */
@@ -1214,6 +1330,7 @@
       (it.type === 'book' && bk.status ? '<span class="status-chip' + statusClass(bk.status) + '">' + esc(bk.status) + '</span>' : '') +
       '</div>' +
       '<h2>' + esc(it.title) + '</h2>';
+    if (it.author) html += '<p class="detail-author">' + esc(it.author) + '</p>';
     if (it.type === 'book') {
       var bits = [];
       if (bk.title) bits.push('<span class="bk-title">' + esc(bk.title) + '</span>');
@@ -1516,6 +1633,7 @@
     $('#fCategory').value = it ? (it.category || CATEGORIES[0]) : CATEGORIES[0];
     $('#fDate').value = (it && it.date) || todayStr();
     $('#fSummary').value = it ? (it.summary || '') : '';
+    $('#fAuthor').value = it ? (it.author || '') : '';
     $('#fQuote').value = it ? (it.quote || '') : '';
     $('#fBody').value = it ? (it.body || '') : '';
     var bk = (it && it.book) || {};
@@ -1567,6 +1685,7 @@
       category: $('#fCategory').value,
       date: $('#fDate').value || todayStr(),
       summary: $('#fSummary').value.trim(),
+      author: $('#fAuthor').value.trim(),
       quote: $('#fQuote').value.trim(),
       body: $('#fBody').value.trim(),
       book: (type === 'book') ? {
@@ -1594,7 +1713,10 @@
         toast(isEdit ? '已更新，别人刷新就能看到' : '已发到线上');
         return refreshOnline().then(evaluateAchievements);
       }).catch(function (err) {
-        toast('保存失败：' + err.message);
+        var msg = (err && err.message) ? err.message : '未知错误';
+        toast(msg.indexOf('author') > -1
+          ? '数据库里还没有「作者」字段：去 Supabase 的 SQL Editor 跑一下 supabase-schema.sql 最后那句 ALTER TABLE，再重新保存'
+          : '保存失败：' + msg);
       });
       return;
     }
@@ -1838,6 +1960,16 @@
       calSelected = cell.getAttribute('data-date');
       renderCalendar();
     });
+    // 经期的标记 / 取消 / 时长调整
+    $('#calDay').addEventListener('click', function (e) {
+      var btn = e.target.closest('[data-period]');
+      if (!btn || !calSelected) return;
+      var act = btn.getAttribute('data-period');
+      if (act === 'mark') markPeriod(calSelected);
+      else if (act === 'unmark') unmarkPeriod(calSelected);
+      else if (act === 'inc') adjustPeriodLen(calSelected, 1);
+      else if (act === 'dec') adjustPeriodLen(calSelected, -1);
+    });
 
     document.addEventListener('change', function (e) {
       if (e.target.classList && (e.target.classList.contains('img-file') || e.target.classList.contains('video-file'))) {
@@ -1925,6 +2057,9 @@
       contentSource = res.source;
       loading = false;
       render();
+      // 网址锚点：#todo / #calendar / #ach 可以直接打开对应页面
+      var want = (location.hash || '').replace('#', '');
+      if (want === 'todo' || want === 'calendar' || want === 'ach') setView(want, true);
       initAuth();
       subscribeRealtime();
       loadTasks().then(function () {

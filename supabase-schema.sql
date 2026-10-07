@@ -166,3 +166,10 @@ alter table public.achievements enable row level security;
 drop policy if exists "achievements 只有站长" on public.achievements;
 create policy "achievements 只有站长" on public.achievements
   for all to authenticated using (true) with check (true);
+
+
+-- ============================================================
+-- 【补充】给内容表加一个「作者」字段
+-- 发内容时可以填，不填就不显示。已经跑过前面部分的话，只跑这一句就行。
+-- ============================================================
+alter table public.entries add column if not exists author text default '';
