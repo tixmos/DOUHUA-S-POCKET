@@ -13,13 +13,6 @@
   var session = null;
   var canEdit = !ONLINE;      // 线上模式：登录之后才变成 true
   var CATEGORIES = ['哲学', '宗教', '艺术', '自然科学', '女性主义', '历史', '游戏', '诗歌文学', '杂谈'];
-  var TYPES = {
-    note:  { label: '图文', glyph: '文' },
-    image: { label: '图片', glyph: '图' },
-    video: { label: '视频', glyph: '影' },
-    link:  { label: '链接', glyph: '链' },
-    book:  { label: '读书', glyph: '读' }
-  };
 
   /* ---------- 示例数据（可随时编辑或删除） ---------- */
   /* 兜底示例：只在「没有本地草稿、也读不到 content.json」时出现
@@ -93,7 +86,6 @@
   function readName() { try { return localStorage.getItem(NAME_KEY) || ''; } catch (e) { return ''; } }
   function saveName(n) { try { localStorage.setItem(NAME_KEY, n); } catch (e) {} }
   function hostOf(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return ''; } }
-  function catGlyph(c) { return String(c || '记').slice(0, 1); }
 
   /* 每个分类一套低饱和的柔和配色 */
   var CAT_STYLE = {
@@ -115,12 +107,6 @@
     if (s === '在读') return ' is-doing';
     if (s === '读毕') return ' is-done';
     return '';
-  }
-
-  function tileHTML(cat) {
-    var s = catStyle(cat);
-    return '<div class="tile" style="--tile-bg:' + s.bg + ';--tile-fg:' + s.fg + '">' +
-      '<span>' + esc(catGlyph(cat)) + '</span></div>';
   }
 
   function catTagHTML(cat) {
@@ -289,7 +275,7 @@
 
   /* ---------- 状态 ---------- */
   var items = [];
-  var filter = { q: '', category: 'all', type: 'all' };
+  var filter = { q: '', category: 'all' };
   var editingId = null;
   var confirmResolve = null;
   var contentSource = 'seed';   // seed | published | local | online
@@ -314,10 +300,10 @@
     var q = filter.q.trim().toLowerCase();
     return items.filter(function (it) {
       if (filter.category !== 'all' && it.category !== filter.category) return false;
-      if (filter.type !== 'all' && it.type !== filter.type) return false;
       if (!q) return true;
-      var meta = TYPES[it.type] || TYPES.note;
-      var hay = [it.title, it.summary, it.body, it.category, (it.tags || []).join(' '), meta.label].join(' ').toLowerCase();
+      var bk = it.book || {};
+      var hay = [it.title, it.summary, it.body, it.category, it.author, bk.title, bk.author,
+        (it.tags || []).join(' ')].join(' ').toLowerCase();
       return hay.indexOf(q) > -1;
     }).sort(function (a, b) {
       return String(b.date || '').localeCompare(String(a.date || '')) ||
@@ -325,41 +311,75 @@
     });
   }
 
+  /* 卡片摘要：换行压成空格，留足长度，具体显示几行交给 CSS 的 -webkit-line-clamp
+     （它会在末尾自动补「…」），这样每行都能排满，不会截成半句 */
   function excerptOf(it) {
-    if (it.summary) return it.summary;
-    if (it.quote) return it.quote.replace(/\s+/g, ' ').slice(0, 110);
-    if (it.body) return it.body.replace(/\s+/g, ' ').slice(0, 110);
+    var s = it.summary || it.quote || it.body || '';
+    s = String(s).replace(/\s+/g, ' ').trim();
+    if (s) return s.slice(0, 900);
     if (it.links && it.links.length) return (it.links[0].title || it.links[0].url);
     return '';
   }
 
+  var PLAY_ICON = '<span class="thumb-play" aria-hidden="true">▶</span>';
+
+  /* 视频封面：优先用手填的封面图；YouTube 可以按链接推出来；
+     mp4 / webm 这类直链交给 <video> 自己抽一帧；B 站这类嵌入页拿不到封面 */
+  function videoCover(v) {
+    if (!v || !v.src) return null;
+    if (v.cover) return { kind: 'img', src: v.cover };
+    var yt = String(v.src).match(/(?:youtube\.com\/(?:embed\/|shorts\/|live\/|watch\?v=)|youtu\.be\/)([A-Za-z0-9_-]{6,})/);
+    if (yt) return { kind: 'img', src: 'https://img.youtube.com/vi/' + yt[1] + '/hqdefault.jpg' };
+    if (v.kind === 'file' || /\.(mp4|webm|ogv|ogg|mov)(\?|#|$)/i.test(v.src)) return { kind: 'file', src: v.src };
+    return null;
+  }
+
   function cardHTML(it) {
-    var meta = TYPES[it.type] || TYPES.note;
-    var img = (it.images || []).filter(function (x) { return x && x.src; })[0];
-    var media = img
-      ? '<img class="thumb" src="' + esc(img.src) + '" alt="' + esc(it.title) + '" loading="lazy">'
-      : tileHTML(it.category);
+    var imgs = (it.images || []).filter(function (x) { return x && x.src; });
+    var vids = (it.videos || []).filter(function (x) { return x && x.src; });
     var tags = (it.tags || []).slice(0, 4).map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('');
+    var bk = it.book || {};
     var bookLine = '';
-    if (it.type === 'book') {
-      var bk = it.book || {};
-      var bits = [];
-      if (bk.title) bits.push(esc(bk.title));
-      if (bk.author) bits.push(esc(bk.author));
-      if (bits.length) bookLine = '<div class="card-book-meta">' + bits.join(' · ') + '</div>';
-    }
+    var bkBits = [];
+    if (bk.title) bkBits.push(esc(bk.title));
+    if (bk.author) bkBits.push(esc(bk.author));
+    if (bkBits.length) bookLine = '<div class="card-book-meta">' + bkBits.join(' · ') + '</div>';
     var cCount = (it.comments || []).length;
+    var ex = excerptOf(it);
+    /* 缩略卡片按内容自动变形：有图用图，有视频用视频封面，
+       什么都没有就直接排成一张信息卡（标题 / 作者 / 日期 / 摘要） */
+    var media = '';
+    if (imgs.length) {
+      media = '<div class="card-media"><img class="thumb" src="' + esc(imgs[0].src) + '" alt="' +
+        esc(it.title) + '" loading="lazy"></div>';
+    } else if (vids.length) {
+      var cov = videoCover(vids[0]);
+      if (cov && cov.kind === 'file') {
+        /* data: 开头的本机视频不加时间片段，直接在开头抽一帧 */
+        var vs = esc(cov.src) + (cov.src.indexOf('data:') === 0 ? '' : '#t=0.1');
+        media = '<div class="card-media"><video class="thumb" preload="metadata" muted playsinline src="' +
+          vs + '"></video>' + PLAY_ICON + '</div>';
+      } else if (cov) {
+        media = '<div class="card-media"><img class="thumb" src="' + esc(cov.src) + '" alt="' +
+          esc(it.title) + '" loading="lazy">' + PLAY_ICON + '</div>';
+      } else {
+        media = '<div class="card-media"><div class="tile tile-plain"><div class="tile-play">▶</div></div></div>';
+      }
+    }
     return '' +
-      '<article class="card" tabindex="0" role="button" data-id="' + esc(it.id) + '" aria-label="' + esc(it.title) + '">' +
-        '<div class="card-media" data-cat="' + esc(it.category || '') + '"><span class="badge">' + esc(meta.label) + '</span>' + media + '</div>' +
+      '<article class="card' + (media ? '' : ' card-plain') + '" tabindex="0" role="button" data-id="' + esc(it.id) + '" aria-label="' + esc(it.title) + '">' +
+        media +
         '<div class="card-body">' +
-          '<div class="card-meta">' + catTagHTML(it.category) + '<time>' + esc(fmtDate(it.date)) + '</time>' +
+          '<div class="card-meta">' + catTagHTML(it.category) +
             (it.author ? '<span class="c-author">' + esc(it.author) + '</span>' : '') +
+            '<time>' + esc(fmtDate(it.date)) + '</time>' +
             (cCount ? '<span class="c-badge">评论 ' + cCount + '</span>' : '') +
           '</div>' +
-          '<h3>' + esc(it.title) + '</h3>' +
-          bookLine +
-          '<p class="excerpt">' + esc(excerptOf(it)) + '</p>' +
+          '<div class="card-main">' +
+            '<h3>' + esc(it.title) + '</h3>' +
+            bookLine +
+            (ex ? '<p class="excerpt">' + esc(ex) + '</p>' : '') +
+          '</div>' +
           (tags ? '<div class="card-tags">' + tags + '</div>' : '') +
         '</div>' +
       '</article>';
@@ -376,7 +396,6 @@
     $$('#chips .chip').forEach(function (c) {
       c.classList.toggle('is-active', c.dataset.cat === filter.category);
     });
-    $('#typeFilter').value = filter.type;
     var hs = $('#heroSource');
     if (hs) {
       hs.textContent = (contentSource === 'online')
@@ -986,11 +1005,11 @@
       desc: '发布第一条内容。锅已经架好了。',
       check: function (c) { return c.entries.length >= 1; } },
     { id: 'five-types', name: '五行不缺', icon: '🖐', tier: 'rare',
-      desc: '图文、图片、视频、链接、读书笔记，五样都齐了。',
+      desc: '纯文字、图片、视频、链接、书目，五种内容都齐了。',
       check: function (c) {
         var s = {};
         c.entries.forEach(function (e) { s[e.type] = 1; });
-        return ['note', 'image', 'video', 'link', 'book'].every(function (t) { return s[t]; });
+        return ['text', 'image', 'video', 'link', 'book'].every(function (t) { return s[t]; });
       } },
     { id: 'nine-cats', name: '九宫格', icon: '🧩', tier: 'legend',
       desc: '九个分类，每格都塞了点东西。',
@@ -1289,8 +1308,15 @@
       out += '<figure class="video-figure">' + inner +
         (v.caption ? '<figcaption>' + esc(v.caption) + '</figcaption>' : '') + '</figure>';
     });
-    if (it.type === 'link') out += linksHTML(it.links || [], true);
+    /* 只有链接、没有图也没有视频时，直接把链接排成正文里的大卡片 */
+    if (linksAsMedia(it)) out += linksHTML(it.links || [], true);
     return out;
+  }
+
+  function linksAsMedia(it) {
+    var imgs = (it.images || []).filter(function (x) { return x && x.src; });
+    var vids = (it.videos || []).filter(function (v) { return v && v.src; });
+    return !imgs.length && !vids.length;
   }
 
   /* ---------- 评论 ---------- */
@@ -1325,8 +1351,8 @@
   function openDetail(id) {
     var it = items.filter(function (x) { return x.id === id; })[0];
     if (!it) return;
-    var meta = TYPES[it.type] || TYPES.note;
     var bk = it.book || {};
+    var hasBook = !!(bk.title || bk.author || bk.edition || bk.locator);
     var html = '';
     // 顶栏：返回 +（登录后才有）编辑 / 删除
     html += '<div class="reader-bar">' +
@@ -1342,12 +1368,12 @@
     html += '<article class="reader">';
     html += '<div class="detail-head">' +
       '<div class="card-meta">' + catTagHTML(it.category) +
-      '<span class="tag">' + esc(meta.label) + '</span><time>' + esc(fmtDate(it.date)) + '</time>' +
-      (it.type === 'book' && bk.status ? '<span class="status-chip' + statusClass(bk.status) + '">' + esc(bk.status) + '</span>' : '') +
+      '<time>' + esc(fmtDate(it.date)) + '</time>' +
+      (hasBook && bk.status ? '<span class="status-chip' + statusClass(bk.status) + '">' + esc(bk.status) + '</span>' : '') +
       '</div>' +
       '<h2>' + esc(it.title) + '</h2>';
     if (it.author) html += '<p class="detail-author">' + esc(it.author) + '</p>';
-    if (it.type === 'book') {
+    if (hasBook) {
       var bits = [];
       if (bk.title) bits.push('<span class="bk-title">' + esc(bk.title) + '</span>');
       if (bk.author) bits.push('<span class="bk-author">' + esc(bk.author) + '</span>');
@@ -1360,7 +1386,7 @@
     if (it.quote) html += '<div class="quote">' + paragraphs(it.quote) + '</div>';
     html += mediaHTML(it);
     if (it.body) html += '<div class="detail-body">' + paragraphs(it.body) + '</div>';
-    if (it.type !== 'link' && it.links && it.links.length) html += linksHTML(it.links, false);
+    if (!linksAsMedia(it) && it.links && it.links.length) html += linksHTML(it.links, false);
     if (it.tags && it.tags.length) {
       html += '<div class="detail-tags">' + it.tags.map(function (t) { return '<span>#' + esc(t) + '</span>'; }).join('') + '</div>';
     }
@@ -1579,6 +1605,7 @@
       '<div class="row-main">' +
         '<input class="inp v-src" placeholder="B站 / YouTube 链接，或 mp4 直链" value="' + esc(data.src || '') + '">' +
         '<input class="inp v-cap" placeholder="视频说明（可选）" value="' + esc(data.caption || '') + '">' +
+        '<input class="inp v-cover" placeholder="封面图地址（可选）· B 站视频可以在网页上右键封面复制图片链接" value="' + esc(data.cover || '') + '">' +
       '</div>' +
       '<div class="row-side">' +
         '<label class="mini-btn">选文件<input type="file" accept="video/*" class="video-file" hidden></label>' +
@@ -1616,36 +1643,12 @@
     return $$(sel + ' .row').map(mapFn);
   }
 
-  function syncTypeSections(type, withRows) {
-    var showImages = (type === 'note' || type === 'image' || type === 'book');
-    var showVideos = (type === 'video');
-    var showLinks = (type === 'note' || type === 'link' || type === 'book');
-    $('#secBook').hidden = (type !== 'book');
-    $('#secImages').hidden = !showImages;
-    $('#secVideos').hidden = !showVideos;
-    $('#secLinks').hidden = !showLinks;
-    if (withRows) {
-      if (showImages && !$$('#imageRows .row').length) addRow('#imageRows', imageRowHTML({}));
-      if (showVideos && !$$('#videoRows .row').length) addRow('#videoRows', videoRowHTML({}));
-      if (showLinks && !$$('#linkRows .row').length) addRow('#linkRows', linkRowHTML({}));
-    }
-    $('#titleLabel').innerHTML = '标题 <span class="req">*</span>';
-    $('#fTitle').placeholder = (type === 'book')
-      ? '这条笔记的标题，比如：关于「仪式」的三点疑问'
-      : '比如：一座村庙的岁末祭仪';
-    $('#bodyLabel').textContent = (type === 'book') ? '我的想法 / 笔记' : ((type === 'note') ? '正文' : '说明 / 备注');
-    $('#bodyHint').textContent = (type === 'book')
-      ? '空一行分段；写判断、疑问，或可以和别的材料对照的地方。'
-      : ((type === 'note') ? '空一行分段；可以写田野笔记、释读、引用。' : '可选，写点背景或说明。');
-  }
-
   function openEditor(id) {
     editingId = id || null;
     var it = null;
     if (id) it = items.filter(function (x) { return x.id === id; })[0];
     $('#editorTitle').textContent = it ? '编辑这件收藏' : '放进口袋';
     $('#fTitle').value = it ? it.title : '';
-    $('#fType').value = it ? it.type : 'note';
     $('#fCategory').value = it ? (it.category || CATEGORIES[0]) : CATEGORIES[0];
     $('#fDate').value = (it && it.date) || todayStr();
     $('#fSummary').value = it ? (it.summary || '') : '';
@@ -1662,14 +1665,12 @@
     fillRows('#imageRows', it ? it.images : null, imageRowHTML);
     fillRows('#videoRows', it ? it.videos : null, videoRowHTML);
     fillRows('#linkRows', it ? it.links : null, linkRowHTML);
-    syncTypeSections($('#fType').value, true);
     openModal('editorModal');
     setTimeout(function () { $('#fTitle').focus(); }, 60);
   }
 
   function saveEntry(e) {
     e.preventDefault();
-    var type = $('#fType').value;
     var title = $('#fTitle').value.trim();
     if (!title) { toast('先写个标题吧'); $('#fTitle').focus(); return; }
 
@@ -1678,22 +1679,30 @@
     }).filter(function (x) { return x.src; });
 
     var videos = collectRows('#videoRows', function (r) {
-      return { src: $('.v-src', r).value.trim(), caption: $('.v-cap', r).value.trim() };
+      var cv = $('.v-cover', r);
+      return {
+        src: $('.v-src', r).value.trim(),
+        caption: $('.v-cap', r).value.trim(),
+        cover: cv ? cv.value.trim() : ''
+      };
     }).filter(function (x) { return x.src; }).map(function (v) {
       var info = classifyVideo(v.src);
-      return { src: info.src, kind: info.kind, caption: v.caption };
+      return { src: info.src, kind: info.kind, caption: v.caption, cover: v.cover };
     });
 
     var links = collectRows('#linkRows', function (r) {
       return { title: $('.l-title', r).value.trim(), url: $('.l-url', r).value.trim(), note: $('.l-note', r).value.trim() };
     }).filter(function (x) { return x.url; });
 
-    if (type === 'image' && !images.length) { toast('图片类型至少需要一张图片'); return; }
-    if (type === 'video' && !videos.length) { toast('视频类型至少需要一个视频地址'); return; }
-    if (type === 'link' && !links.length) { toast('链接类型至少需要一个链接'); return; }
-    if (type === 'book' && !$('#fBookTitle').value.trim()) {
-      toast('读书笔记记得写书名'); $('#fBookTitle').focus(); return;
-    }
+    var bkTitle = $('#fBookTitle').value.trim();
+    var bkAuthor = $('#fBookAuthor').value.trim();
+    var bkEdition = $('#fBookEdition').value.trim();
+    var bkLocator = $('#fBookLocator').value.trim();
+    var hasBook = !!(bkTitle || bkAuthor || bkEdition || bkLocator);
+    /* 类型不再让人手选，按实际内容自动归一个（只给旧数据、筛选和成就用） */
+    var type = hasBook ? 'book'
+      : (videos.length ? 'video'
+        : (images.length ? 'image' : (links.length ? 'link' : 'text')));
 
     var data = {
       type: type,
@@ -1704,11 +1713,8 @@
       author: $('#fAuthor').value.trim(),
       quote: $('#fQuote').value.trim(),
       body: $('#fBody').value.trim(),
-      book: (type === 'book') ? {
-        title: $('#fBookTitle').value.trim(),
-        author: $('#fBookAuthor').value.trim(),
-        edition: $('#fBookEdition').value.trim(),
-        locator: $('#fBookLocator').value.trim(),
+      book: hasBook ? {
+        title: bkTitle, author: bkAuthor, edition: bkEdition, locator: bkLocator,
         status: $('#fBookStatus').value
       } : {},
       tags: $('#fTags').value.split(/[,，、\s]+/).map(function (s) { return s.trim().replace(/^#/, ''); }).filter(Boolean),
@@ -1869,10 +1875,6 @@
       filter.q = this.value;
       render();
     });
-    $('#typeFilter').addEventListener('change', function () {
-      filter.type = this.value;
-      render();
-    });
     $('#chips').addEventListener('click', function (e) {
       var chip = e.target.closest('.chip');
       if (!chip) return;
@@ -1943,9 +1945,6 @@
       if (e.key === 'Escape') closeTopModal();
     });
 
-    $('#fType').addEventListener('change', function () {
-      syncTypeSections(this.value, true);
-    });
     $('#addImageBtn').addEventListener('click', function () { addRow('#imageRows', imageRowHTML({})); });
     $('#addVideoBtn').addEventListener('click', function () { addRow('#videoRows', videoRowHTML({})); });
     $('#addLinkBtn').addEventListener('click', function () { addRow('#linkRows', linkRowHTML({})); });
@@ -1993,13 +1992,13 @@
       }
     });
 
-    // 图片挂了就退回分类底纹，不留破图
+    // 图片挂了就退回一片柔和底纹，不留破图
     document.addEventListener('error', function (e) {
       var img = e.target;
       if (!img || img.tagName !== 'IMG' || !img.classList || !img.classList.contains('thumb')) return;
       var box = img.parentNode;
       if (!box || !box.classList || !box.classList.contains('card-media')) return;
-      box.insertAdjacentHTML('beforeend', tileHTML(box.getAttribute('data-cat') || ''));
+      box.insertAdjacentHTML('beforeend', '<div class="tile tile-plain" aria-hidden="true"></div>');
       img.remove();
     }, true);
 

@@ -30,14 +30,6 @@
         <span class="search-icon" aria-hidden="true">⌕</span>
         <input id="searchInput" type="search" placeholder="搜索标题、标签、正文…" aria-label="搜索">
       </div>
-      <select id="typeFilter" class="sel sel-sm" aria-label="按类型筛选">
-        <option value="all">全部类型</option>
-        <option value="note">图文</option>
-        <option value="image">图片</option>
-        <option value="video">视频</option>
-        <option value="link">链接</option>
-        <option value="book">读书笔记</option>
-      </select>
       <button class="btn btn-primary" id="addBtn">＋ 放进口袋</button>
       <button class="btn btn-ghost btn-sm" id="authBtn" hidden>登录</button>
     </div>
@@ -189,16 +181,6 @@
 
       <div class="form-grid">
         <div class="field">
-          <label for="fType">条目类型</label>
-          <select class="sel" id="fType">
-            <option value="note">图文</option>
-            <option value="image">图片</option>
-            <option value="video">视频</option>
-            <option value="link">链接</option>
-            <option value="book">读书笔记</option>
-          </select>
-        </div>
-        <div class="field">
           <label for="fCategory">分类</label>
           <select class="sel" id="fCategory"></select>
         </div>
@@ -213,10 +195,10 @@
         <input class="inp" id="fSummary" placeholder="卡片上显示的短句，留空则从正文里截取">
       </div>
 
-      <section class="block" id="secBook" hidden>
-        <header class="block-head"><h3>书目信息</h3></header>
+      <section class="block" id="secBook">
+        <header class="block-head"><h3>书目信息（选填）</h3></header>
         <div class="field">
-          <label for="fBookTitle">书名 <span class="req">*</span></label>
+          <label for="fBookTitle">书名</label>
           <input class="inp" id="fBookTitle" placeholder="例如：《金枝》">
         </div>
         <div class="form-grid mt">
